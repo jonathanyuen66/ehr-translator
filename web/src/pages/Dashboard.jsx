@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteDocument, listDocuments, uploadDocument } from "../api";
+import { deleteDocument, listDocuments, renameDocument, uploadDocument } from "../api";
 import DocumentViewer from "./DocumentViewer";
+
+function stripExtension(filename) {
+  return filename.replace(/\.pdf$/i, "");
+}
 
 export default function Dashboard({ user, onSignOut }) {
   const [documents, setDocuments] = useState(undefined); // undefined = loading
@@ -8,6 +12,7 @@ export default function Dashboard({ user, onSignOut }) {
   const [uploading, setUploading] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [selectedFileName, setSelectedFileName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -20,6 +25,13 @@ export default function Dashboard({ user, onSignOut }) {
       .catch((err) => setError(err.message));
   }
 
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    setSelectedFileName(file?.name || "");
+    // Only auto-fill if the user hasn't already typed a custom name.
+    setDisplayName((prev) => prev || (file ? stripExtension(file.name) : ""));
+  }
+
   async function handleUpload(e) {
     e.preventDefault();
     const file = fileInputRef.current?.files?.[0];
@@ -28,10 +40,11 @@ export default function Dashboard({ user, onSignOut }) {
     setUploading(true);
     setError("");
     try {
-      const doc = await uploadDocument(file);
+      const doc = await uploadDocument(file, displayName.trim());
       setDocuments((docs) => [doc, ...(docs || [])]);
       fileInputRef.current.value = "";
       setSelectedFileName("");
+      setDisplayName("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -44,6 +57,20 @@ export default function Dashboard({ user, onSignOut }) {
     try {
       await deleteDocument(id);
       setDocuments((docs) => docs.filter((d) => d.id !== id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleRename(doc) {
+    const next = window.prompt("Rename document:", doc.display_name);
+    if (next === null) return; // cancelled
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === doc.display_name) return;
+
+    try {
+      const updated = await renameDocument(doc.id, trimmed);
+      setDocuments((docs) => docs.map((d) => (d.id === doc.id ? updated : d)));
     } catch (err) {
       setError(err.message);
     }
@@ -76,12 +103,18 @@ export default function Dashboard({ user, onSignOut }) {
           type="file"
           accept="application/pdf"
           required
-          onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name || "")}
+          onChange={handleFileChange}
         />
         <label className="btn" htmlFor="file-upload">
           Choose PDF
         </label>
         <span className="file-name">{selectedFileName || "No file chosen"}</span>
+        <input
+          type="text"
+          placeholder="Name (optional)"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+        />
         <button className="btn btn-primary" type="submit" disabled={uploading}>
           {uploading ? "Uploading…" : "Upload PDF"}
         </button>
@@ -98,10 +131,13 @@ export default function Dashboard({ user, onSignOut }) {
           {documents.map((doc) => (
             <li className="doc-row" key={doc.id}>
               <button className="doc-name" onClick={() => setViewing(doc)}>
-                {doc.original_filename}
+                {doc.display_name}
               </button>
               <span className="status-chip">{doc.status}</span>
               <time>{new Date(doc.created_at).toLocaleDateString()}</time>
+              <button className="btn-link" onClick={() => handleRename(doc)}>
+                Rename
+              </button>
               <button className="btn-link" onClick={() => handleDelete(doc.id)}>
                 Delete
               </button>

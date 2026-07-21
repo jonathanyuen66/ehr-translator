@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    http_method_names = ["get", "post", "delete"]
+    http_method_names = ["get", "post", "patch", "delete"]
 
     def get_queryset(self):
         # Scoping every query to the requesting user is what actually
@@ -25,9 +25,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         file_obj = self.request.FILES.get("file")
+        original_filename = file_obj.name if file_obj else ""
+        display_name = (self.request.data.get("display_name") or "").strip() or original_filename
         document = serializer.save(
             owner=self.request.user,
-            original_filename=file_obj.name if file_obj else "",
+            original_filename=original_filename,
+            display_name=display_name,
+            content_hash=serializer.content_hash,
         )
         # Synchronous for now (no Celery/task queue) — fine at family scale;
         # revisit only if extraction becomes noticeably slow.

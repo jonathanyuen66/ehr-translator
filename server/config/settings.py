@@ -94,7 +94,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 PUBMED_API_KEY = os.environ.get("PUBMED_API_KEY", "")
 
 # In dev, emails print to the runserver console instead of actually sending —

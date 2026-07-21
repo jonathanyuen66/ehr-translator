@@ -65,7 +65,7 @@ export default function DocumentViewer({ document, onBack }) {
         <button className="btn-link" onClick={onBack}>
           ← Back to documents
         </button>
-        <h1 className="doc-title">{document.original_filename}</h1>
+        <h1 className="doc-title">{document.display_name}</h1>
         <div className="lang-switch">
           {LANGUAGES.map((l) => (
             <button

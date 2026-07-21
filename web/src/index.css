@@ -169,6 +169,15 @@ label.btn {
   font-size: 0.85rem;
 }
 
+.upload-form input[type="text"] {
+  font: inherit;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  min-width: 12rem;
+}
+
 .doc-list {
   margin-top: 1.5rem;
   display: flex;
@@ -180,7 +189,7 @@ label.btn {
 
 .doc-row {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto auto auto;
   gap: 1rem;
   align-items: center;
   padding: 0.9rem 1rem;

@@ -55,6 +55,13 @@ export function deleteDocument(id) {
   return request(`/api/documents/${id}/`, { method: "DELETE" });
 }
 
+export function renameDocument(id, displayName) {
+  return request(`/api/documents/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ display_name: displayName }),
+  });
+}
+
 export function fetchAnnotations(id, language = "en") {
   return request(`/api/documents/${id}/annotations/?language=${language}`);
 }
@@ -71,13 +78,14 @@ export async function fetchDocumentFile(id) {
   return res.blob();
 }
 
-export async function uploadDocument(file) {
+export async function uploadDocument(file, displayName) {
   const token = getToken();
   const headers = {};
   if (token) headers.Authorization = `Token ${token}`;
 
   const formData = new FormData();
   formData.append("file", file);
+  if (displayName) formData.append("display_name", displayName);
 
   // Deliberately not using request() here — a multipart upload needs the
   // browser to set its own Content-Type (with the boundary), not the
@@ -91,7 +99,7 @@ export async function uploadDocument(file) {
     let message = `Upload failed (${res.status})`;
     try {
       const body = await res.json();
-      message = body.detail || body.file?.[0] || message;
+      message = body.detail || body.file?.[0] || body.display_name?.[0] || message;
     } catch {
       // response wasn't JSON — fall back to the generic message
     }

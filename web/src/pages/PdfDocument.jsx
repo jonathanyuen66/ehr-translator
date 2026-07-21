@@ -24,7 +24,11 @@ export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
       if (!container) return;
       container.innerHTML = "";
 
-      const pdf = await getDocument({ url }).promise;
+      // disableStream/disableAutoFetch: blob: URLs can't serve HTTP range
+      // requests anyway, and Safari's ReadableStream/range-request handling
+      // for pdf.js has a history of being less reliable than Chromium's —
+      // forcing a plain full-download avoids that class of issue entirely.
+      const pdf = await getDocument({ url, disableStream: true, disableAutoFetch: true }).promise;
       if (cancelled) return;
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -54,8 +58,13 @@ export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
         await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
         if (cancelled) return;
 
+        // getTextContent() (a plain resolved object) rather than
+        // streamTextContent() (a ReadableStream) — sidesteps Safari's
+        // historically less complete ReadableStream support, which is a
+        // documented source of pdf.js failures specifically on Safari.
+        const textContent = await page.getTextContent();
         const textLayer = new TextLayer({
-          textContentSource: page.streamTextContent(),
+          textContentSource: textContent,
           container: textLayerDiv,
           viewport,
         });
