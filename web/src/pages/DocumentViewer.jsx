@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchAnnotations, fetchDocumentFile } from "../api";
+import PdfDocument from "./PdfDocument";
 
 const LANGUAGES = [
   { code: "en", label: "English" },
@@ -13,6 +14,7 @@ export default function DocumentViewer({ document, onBack }) {
   const [language, setLanguage] = useState("en");
   const [annotations, setAnnotations] = useState(undefined); // undefined = loading
   const [annotationsError, setAnnotationsError] = useState("");
+  const [hoveredTerm, setHoveredTerm] = useState(null);
 
   useEffect(() => {
     let objectUrl;
@@ -49,6 +51,13 @@ export default function DocumentViewer({ document, onBack }) {
       cancelled = true;
     };
   }, [document.id, language]);
+
+  // Memoized so hover-only re-renders (which don't touch `annotations`) don't
+  // hand PdfDocument a new array reference and retrigger its whole render effect.
+  const terms = useMemo(
+    () => (annotations ? annotations.items.map((item) => item.term) : []),
+    [annotations]
+  );
 
   return (
     <main className="shell">
@@ -89,7 +98,14 @@ export default function DocumentViewer({ document, onBack }) {
               <p className="summary-block">{annotations.summary}</p>
               <ol className="findings-list">
                 {annotations.items.map((item) => (
-                  <li className="finding" key={item.term}>
+                  <li
+                    className={
+                      "finding" + (hoveredTerm === item.term ? " finding-active" : "")
+                    }
+                    key={item.term}
+                    onMouseEnter={() => setHoveredTerm(item.term)}
+                    onMouseLeave={() => setHoveredTerm(null)}
+                  >
                     <span className="finding-term">{item.term}</span>
                     <span className="finding-explain">{item.explanation}</span>
                     {item.source_found ? (
@@ -128,7 +144,12 @@ export default function DocumentViewer({ document, onBack }) {
                   Open in new tab
                 </a>
               </p>
-              <iframe className="pdf-frame" title={document.original_filename} src={url} />
+              <PdfDocument
+                url={url}
+                terms={terms}
+                hoveredTerm={hoveredTerm}
+                onHoverTerm={setHoveredTerm}
+              />
             </>
           )}
         </div>

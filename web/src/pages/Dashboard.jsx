@@ -7,6 +7,7 @@ export default function Dashboard({ user, onSignOut }) {
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [viewing, setViewing] = useState(null);
+  const [selectedFileName, setSelectedFileName] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function Dashboard({ user, onSignOut }) {
       const doc = await uploadDocument(file);
       setDocuments((docs) => [doc, ...(docs || [])]);
       fileInputRef.current.value = "";
+      setSelectedFileName("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -67,7 +69,19 @@ export default function Dashboard({ user, onSignOut }) {
       </p>
 
       <form className="upload-form" onSubmit={handleUpload}>
-        <input ref={fileInputRef} type="file" accept="application/pdf" required />
+        <input
+          ref={fileInputRef}
+          id="file-upload"
+          className="visually-hidden"
+          type="file"
+          accept="application/pdf"
+          required
+          onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name || "")}
+        />
+        <label className="btn" htmlFor="file-upload">
+          Choose PDF
+        </label>
+        <span className="file-name">{selectedFileName || "No file chosen"}</span>
         <button className="btn btn-primary" type="submit" disabled={uploading}>
           {uploading ? "Uploading…" : "Upload PDF"}
         </button>
