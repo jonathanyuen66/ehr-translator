@@ -1,0 +1,372 @@
+/* Design direction: "Illuminated Manuscript" palette + "Annotated Statute"
+   structure (numbered findings, bordered panels, small-caps citations) —
+   picked by mixing two directions from a styling review round. */
+
+:root {
+  --bg: #efe9d8;
+  --panel: #f6f1e2;
+  --ink: #2b3a2c;
+  --muted: #6e7a63;
+  --accent: #8a6a2e;
+  --line: #c9bd93;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #21261f;
+    --panel: #2a2f26;
+    --ink: #e6e6d8;
+    --muted: #a3ab94;
+    --accent: #d0b46a;
+    --line: #454b3c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Iowan Old Style", Georgia, "Times New Roman", serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.shell {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 2.25rem 1.5rem 5rem;
+}
+
+.top-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.top-row h1 {
+  font-size: 1.65rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.account {
+  font-family: system-ui, sans-serif;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.btn,
+.account button {
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  border-radius: 2px;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.account button {
+  margin-left: 0.6rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.74rem;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.disclaimer {
+  margin-top: 1.1rem;
+  padding: 0.7rem 0.9rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.upload-form {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+}
+
+.doc-list {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  list-style: none;
+  padding: 0;
+}
+
+.doc-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+}
+
+.doc-name {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 1.0rem;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+
+.doc-row time {
+  font-family: system-ui, sans-serif;
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-chip {
+  font-family: system-ui, sans-serif;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 0.15rem 0.4rem;
+  justify-self: start;
+}
+
+.empty-state,
+.loading-state {
+  margin-top: 1.5rem;
+  font-family: system-ui, sans-serif;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---- Sign in ---- */
+.signin-form {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+
+.signin-form input {
+  font: inherit;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  min-width: 16rem;
+}
+
+.error-text {
+  margin-top: 1rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+/* ---- Document viewer ---- */
+.viewer-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.doc-title {
+  font-size: 1.55rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-family: system-ui, sans-serif;
+}
+
+.lang-switch button {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.lang-switch button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.viewer-grid {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 3rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .viewer-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+.summary-block {
+  font-size: 0.98rem;
+  line-height: 1.7;
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  margin: 0;
+}
+
+.findings-list {
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: clause;
+}
+
+.finding {
+  counter-increment: clause;
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.finding:last-child {
+  border-bottom: none;
+}
+
+.finding-term {
+  display: block;
+  font-weight: 700;
+  font-size: 0.96rem;
+  margin: 0;
+}
+
+.finding-term::before {
+  content: "§" counter(clause) " — ";
+  font-family: system-ui, sans-serif;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.finding-explain {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.citation-list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.citation-list li {
+  margin-top: 0.3rem;
+}
+
+.citation {
+  display: inline-block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.74rem;
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.citation::before {
+  content: "see: ";
+}
+
+.no-source {
+  margin-top: 0.4rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.document-pane {
+  border: 1px solid var(--line);
+  padding: 1.5rem;
+}
+
+.pane-label {
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 0.9rem;
+}
+
+.pdf-frame {
+  width: 100%;
+  height: 80vh;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
