@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -97,6 +98,24 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
 PUBMED_API_KEY = os.environ.get("PUBMED_API_KEY", "")
 
+# GCP project for Vertex AI (see documents/gemini.py). Left blank in local
+# dev — falls back to the plain API-key Gemini client above, same "optional
+# locally" pattern as DLP_PROJECT_ID and GS_BUCKET_NAME. Required in any
+# deployed environment: Vertex AI is the BAA-eligible path, unlike the
+# consumer/free-tier API key, whose terms permit Google to use inputs to
+# improve their products.
+VERTEX_PROJECT_ID = os.environ.get("VERTEX_PROJECT_ID", "")
+VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
+# Vertex's publisher model IDs don't always match AI Studio's model names
+# 1:1 — override here if the Vertex-side ID differs from GEMINI_MODEL.
+# Confirm the exact ID against the Vertex Model Garden before deploying.
+VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "")
+
+# GCP project running the Cloud DLP API used as the first redaction pass in
+# documents/dlp.py. Left blank in local dev — that pass is skipped (with a
+# warning) rather than requiring every developer to have GCP credentials.
+DLP_PROJECT_ID = os.environ.get("DLP_PROJECT_ID", "")
+
 # In dev, emails print to the runserver console instead of actually sending —
 # the sign-in link shows up right in the terminal, same idea as grabbing the
 # link from the Firebase Auth Emulator UI during the earlier prototype.
@@ -109,9 +128,46 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # populated by `collectstatic`, served by WhiteNoise
 
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"  # not wired into urls.py on purpose — files are only
 # ever served through the permission-checked DocumentViewSet.file action.
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Uploaded documents (Document.file) go to a private, CMEK-encrypted GCS
+# bucket when GS_BUCKET_NAME is set — required in any deployed environment,
+# since that's where actual patient PHI lives. Left blank in local dev, which
+# falls back to Django's default local FileSystemStorage, same "optional
+# locally" pattern as DLP_PROJECT_ID above. Static assets (admin, DRF
+# browsable API) deliberately stay off GCS entirely — WhiteNoise serves those
+# directly from the container instead, since they're small, contain no PHI,
+# and don't need CMEK or per-object access control. STORAGES is set
+# unconditionally (not via the legacy STATICFILES_STORAGE setting, which
+# Django 5.1+ no longer derives STORAGES from automatically).
+GS_BUCKET_NAME = os.environ.get("GS_BUCKET_NAME", "")
+GS_PROJECT_ID = os.environ.get("GS_PROJECT_ID", "")
+
+STORAGES = {
+    "default": (
+        {
+            "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+            "OPTIONS": {
+                "bucket_name": GS_BUCKET_NAME,
+                "project_id": GS_PROJECT_ID,
+                # No public ACLs and no signed URLs — the bucket is
+                # IAM-only/private, and the only access path is the
+                # permission-checked DocumentViewSet.file action, same as
+                # local storage today.
+                "default_acl": None,
+                "querystring_auth": False,
+            },
+        }
+        if GS_BUCKET_NAME
+        else {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+    ),
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}

@@ -3,12 +3,18 @@ import re
 
 import spacy
 
+from . import dlp
+
 logger = logging.getLogger(__name__)
 
-# Best-effort redaction, run in three passes before any text leaves the
-# system on its way to Gemini. No single pass is sufficient on its own —
-# that's why there are three:
+# Best-effort redaction, run in four passes before any text leaves the system
+# on its way to Gemini. No single pass is sufficient on its own — that's why
+# there are four:
 #
+# 0. Cloud DLP (see dlp.py), over the raw text. Pre-built, Google-maintained
+#    detectors for generic HIPAA identifiers (names, SSNs, phone numbers,
+#    addresses, dates) — the first line of defense, and the only one of the
+#    four that isn't specific to this app's code or this app's blind spots.
 # 1. A labeled-field regex, for the structured header block most scan
 #    reports use ("Patient Name: Jane Doe" -> "Patient Name: [REDACTED]").
 #    Catches things a generic language model has no special notion of, like
@@ -96,6 +102,7 @@ def _redact_narrative_patient_name(text: str) -> str:
 
 
 def deidentify(text: str) -> str:
+    text = dlp.redact(text)
     text = _FIELD_REGEX.sub(lambda m: f"{m.group('label')} [REDACTED]", text)
     text = _redact_narrative_patient_name(text)
     return _redact_entities(text)

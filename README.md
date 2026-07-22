@@ -25,7 +25,7 @@ Access is invite-only, and each user's uploaded documents are private to them.
 - **Frontend**: React (Vite).
 - **Annotation pipeline**, run once per document (and cached per language after that):
   1. Text is extracted from the uploaded PDF server-side (`pdfplumber`).
-  2. Identifying details (patient name, DOB, MRN, address) are redacted from that text before anything leaves the system.
+  2. Identifying details (patient name, DOB, MRN, address, phone, email, SSN...) are redacted from that text before anything leaves the system, in four layered passes (`documents/dlp.py`, `documents/deidentify.py`): Cloud DLP's pre-built HIPAA-identifier detectors first, then a labeled-field regex, a narrative-name regex, and a spaCy NER pass, each catching things the others miss.
   3. Gemini reads the de-identified text and picks out the key findings a layperson would need explained, plus search terms for each.
   4. Real papers are retrieved from PubMed (NCBI E-utilities) for each finding — this is the *only* source material the model is ever allowed to cite. Any citation it returns is re-validated against that real list afterward; nothing it invents makes it to the screen.
   5. A second Gemini call writes the plain-language summary and per-finding explanations in the requested language.
@@ -34,7 +34,7 @@ Access is invite-only, and each user's uploaded documents are private to them.
 
 ## Status
 
-Phases 1–6 are built and working locally: auth, upload/storage, the PDF viewer, the annotation pipeline, styling, and multi-language support. Remaining: security hardening and a real (non-dev) deployment.
+Phases 1–6 are built and working locally: auth, upload/storage, the PDF viewer, the annotation pipeline, styling, and multi-language support. Security hardening (Cloud DLP, CMEK-encrypted GCS storage, Vertex AI) and the GCP deployment infrastructure (Terraform, Cloud Run, Cloud SQL, Cloud Armor, audit logging) are built — see [Deploying to GCP](#deploying-to-gcp). Remaining: signing the actual BAA with Google, and a real domain/DNS/managed-cert cutover, both manual steps outside this codebase.
 
 ## Running it locally
 
@@ -65,6 +65,8 @@ Edit `server/.env`:
 - `DB_USER` — your local Postgres role (often your OS username)
 - `GEMINI_API_KEY` — required for the annotation pipeline to work
 - `PUBMED_API_KEY` — optional, raises the PubMed rate limit
+- `DLP_PROJECT_ID` — optional locally (the Cloud DLP redaction pass is skipped with a warning if unset); required before this ever touches real patient data. See [Cloud DLP setup](#cloud-dlp-setup) below.
+- `GS_BUCKET_NAME` / `GS_PROJECT_ID` — optional locally (uploads fall back to `server/media/` if unset); required in any deployed environment. See [GCS storage setup](#gcs-storage-setup) below.
 
 Then:
 
@@ -123,6 +125,162 @@ Click to sign in (expires in 15 minutes): http://localhost:8001/auth/callback/?t
 
 Open that URL to complete sign-in. To send real email instead (e.g. once deployed), change `EMAIL_BACKEND` in `.env` to a real backend (SMTP, SendGrid, etc.) with the matching credentials.
 
+## Cloud DLP setup
+
+> If you're deploying via `infra/terraform` (see [Deploying to GCP](#deploying-to-gcp)), the API enablement and IAM binding below are already handled by `apis.tf`/`iam.tf` — this section is mainly useful for understanding what's actually being granted, or for setting up your own local dev access.
+
+The first redaction pass (`documents/dlp.py`) calls the [Cloud Data Loss Prevention API](https://cloud.google.com/security/products/sensitive-data-protection) to catch generic HIPAA identifiers (names, SSNs, phone numbers, emails, addresses, dates) before the app's own regex/NER passes run. It's optional locally — unset `DLP_PROJECT_ID` and it's skipped with a logged warning — but required in any environment that handles real patient data, since it's one of the four redaction layers, not a nice-to-have.
+
+**One-time setup, per GCP project:**
+
+```bash
+gcloud services enable dlp.googleapis.com --project=YOUR_PROJECT_ID
+```
+
+**Local dev**, to exercise the real DLP pass instead of the skip path:
+
+```bash
+gcloud auth application-default login
+```
+
+Then set `DLP_PROJECT_ID=YOUR_PROJECT_ID` in `server/.env`. Your own user account needs the `roles/dlp.user` role (or broader) on that project.
+
+**Production (Cloud Run)**: grant `roles/dlp.user` to the service account the Cloud Run service runs as — not your personal account:
+
+```bash
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:YOUR_RUNTIME_SERVICE_ACCOUNT@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/dlp.user"
+```
+
+Cloud DLP calls run inside your GCP project, under your organization's BAA if one is in place with Google — but the BAA itself is a separate legal step (see the note at the end of this README), not something this codebase can establish on its own.
+
+## GCS storage setup
+
+> If you're deploying via `infra/terraform`, the bucket, KMS key, and IAM binding below are already handled by `kms.tf`/`storage.tf`/`iam.tf` — this section is mainly for local dev access or understanding what's provisioned.
+
+Uploaded documents (`Document.file`) go to a [Cloud Storage](https://cloud.google.com/storage) bucket when `GS_BUCKET_NAME` is set — this is where the actual PHI in this app lives, so the bucket should be private (uniform bucket-level access, no `allUsers`/`allAuthenticatedUsers` binding) and CMEK-encrypted via Cloud KMS. It's optional locally — unset `GS_BUCKET_NAME` and uploads fall back to local disk (`server/media/`), same as today.
+
+**One-time setup, per GCP project:**
+
+```bash
+gcloud services enable storage.googleapis.com cloudkms.googleapis.com --project=YOUR_PROJECT_ID
+
+# A KMS key ring + key for CMEK (skip if you already have one you want to reuse)
+gcloud kms keyrings create ehr-translator --location=us-central1 --project=YOUR_PROJECT_ID
+gcloud kms keys create gcs-uploads --keyring=ehr-translator --location=us-central1 --purpose=encryption --project=YOUR_PROJECT_ID
+
+# The bucket itself, private, uniform access, encrypted with that key
+gcloud storage buckets create gs://YOUR_BUCKET_NAME \
+  --project=YOUR_PROJECT_ID --location=us-central1 --uniform-bucket-level-access \
+  --default-encryption-key=projects/YOUR_PROJECT_ID/locations/us-central1/keyRings/ehr-translator/cryptoKeys/gcs-uploads
+
+# Cloud Storage's own service agent needs to use that key
+gcloud kms keys add-iam-policy-binding gcs-uploads --keyring=ehr-translator --location=us-central1 \
+  --member="serviceAccount:service-YOUR_PROJECT_NUMBER@gs-project-accounts.iam.gserviceaccount.com" \
+  --role="roles/cloudkms.cryptoKeyEncrypterDecrypter" --project=YOUR_PROJECT_ID
+```
+
+**Local dev**, to exercise the real bucket instead of local disk: `gcloud auth application-default login`, then set `GS_BUCKET_NAME` and `GS_PROJECT_ID` in `server/.env`. Your own user account needs `roles/storage.objectAdmin` on the bucket (not the whole project).
+
+**Production (Cloud Run)**: grant the Cloud Run service account `roles/storage.objectAdmin` scoped to just this bucket:
+
+```bash
+gcloud storage buckets add-iam-policy-binding gs://YOUR_BUCKET_NAME \
+  --member="serviceAccount:YOUR_RUNTIME_SERVICE_ACCOUNT@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+```
+
+Django's own static assets (admin, DRF browsable API) are served by [WhiteNoise](https://whitenoise.readthedocs.io/) directly from the app container, not from this bucket — they contain no PHI and don't need CMEK or per-object access control. Run `python manage.py collectstatic` before deploying (this populates `server/staticfiles/`, which is gitignored).
+
+## Vertex AI setup
+
+> If you're deploying via `infra/terraform`, the API enablement and IAM binding below are already handled by `apis.tf`/`iam.tf` — this section is mainly for local dev access or understanding what's provisioned.
+
+The annotation pipeline (`documents/gemini.py`) calls [Vertex AI](https://cloud.google.com/vertex-ai) instead of the consumer Gemini API when `VERTEX_PROJECT_ID` is set — same `google-genai` SDK, just authenticated via ADC (a service account) instead of a static API key, and covered by Vertex's enterprise terms (BAA-eligible, no training on customer data) rather than the free tier's. It's optional locally — unset `VERTEX_PROJECT_ID` and it falls back to the existing `GEMINI_API_KEY` client.
+
+**One-time setup, per GCP project:**
+
+```bash
+gcloud services enable aiplatform.googleapis.com --project=YOUR_PROJECT_ID
+```
+
+**Local dev**, to exercise Vertex instead of the API-key fallback: `gcloud auth application-default login`, then set `VERTEX_PROJECT_ID` and `VERTEX_LOCATION` in `server/.env`. Your own user account needs `roles/aiplatform.user` on that project.
+
+**Production (Cloud Run)**: grant `roles/aiplatform.user` to the Cloud Run service account:
+
+```bash
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:YOUR_RUNTIME_SERVICE_ACCOUNT@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+```
+
+**Model ID note**: Vertex's publisher model IDs don't always match AI Studio's friendly model names (currently `gemini-3.1-flash-lite` — see `GEMINI_MODEL`). Check the exact equivalent in the [Vertex Model Garden](https://console.cloud.google.com/vertex-ai/model-garden) before deploying, and set `VERTEX_MODEL` only if it differs from `GEMINI_MODEL`.
+
+## Deploying to GCP
+
+`infra/terraform/` stands up the whole environment: a private CMEK-encrypted Cloud SQL instance (no public IP), the uploads and frontend buckets from above, Cloud Run (API) and a one-off migrate job, an external HTTPS load balancer routing `/api/*`, `/admin/*`, `/auth/*` to the API and everything else to the frontend bucket, a Cloud Armor WAF policy in front of both, least-privilege service accounts, and Data Access audit logging.
+
+**This is real, billed GCP infrastructure — nothing here should be applied without reading through what it creates first**, especially `sql.tf` (a running Postgres instance) and `run.tf`/`lb.tf` (a load balancer with a static IP, billed whether or not it's in front of a domain yet).
+
+### One-time bootstrap
+
+```bash
+# The bucket Terraform stores its own state in has to exist before Terraform
+# can use it as a backend.
+gcloud storage buckets create gs://YOUR_PROJECT_ID-tfstate \
+  --uniform-bucket-level-access --project=YOUR_PROJECT_ID
+
+cd infra/terraform
+terraform init -backend-config="bucket=YOUR_PROJECT_ID-tfstate"
+cp terraform.tfvars.example terraform.tfvars   # fill in project_id at minimum
+```
+
+### Apply order
+
+The resources have real dependencies (Cloud SQL needs the private-services peering, Cloud Run needs the service accounts and secrets, the load balancer needs the Cloud Run service to exist first). A single `terraform plan` / `terraform apply` handles the graph correctly on its own — no need to apply file-by-file — but expect the first apply to take a while (Cloud SQL instance creation alone is often 5-10 minutes), and **review the plan output before confirming**, every time:
+
+```bash
+terraform plan
+terraform apply
+```
+
+The very first apply uses `var.app_image`'s placeholder value (a public "hello" container) since no real image exists yet — that's expected. Push a real image and update the Cloud Run service afterward (this is exactly what the CI workflow automates going forward).
+
+### First deploy (before CI is wired up)
+
+```bash
+PROJECT_ID=YOUR_PROJECT_ID
+REGION=us-central1
+IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/ehr-translator/api:manual"
+
+gcloud auth configure-docker "$REGION-docker.pkg.dev"
+docker build -t "$IMAGE" server/
+docker push "$IMAGE"
+
+gcloud run jobs update migrate --region="$REGION" --image="$IMAGE"
+gcloud run jobs execute migrate --region="$REGION" --wait
+
+gcloud run services update api --region="$REGION" --image="$IMAGE"
+
+cd web && VITE_API_BASE_URL="http://$(terraform -chdir=../infra/terraform output -raw lb_ip_address)" npm run build
+gsutil -m rsync -r -d dist "gs://$PROJECT_ID-ehr-frontend"
+```
+
+Visit `http://<lb_ip_address>` (from `terraform output lb_ip_address`) to smoke-test — plain HTTP, since there's no domain/managed cert yet (see below).
+
+### CI/CD
+
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml) automates the above on every push to `main`, authenticating via Workload Identity Federation (no service account key ever stored in GitHub). It needs:
+1. `github_repo` set in `terraform.tfvars` to your `"owner/repo"`, applied, so the WIF trust and `ci-deployer-sa` exist.
+2. Four repository variables in GitHub (Settings → Secrets and variables → Actions → Variables) — `GCP_PROJECT_ID`, `GCP_REGION`, `WORKLOAD_IDENTITY_PROVIDER` (from `terraform output workload_identity_provider`), and `FRONTEND_API_BASE_URL` (the LB IP or domain).
+
+### Before real patient data touches this
+
+- **Domain + managed cert**: set `domain_name` in `terraform.tfvars`, point DNS at `lb_ip_address`, re-apply. The Google-managed cert stays `PROVISIONING` until DNS resolves — check with `gcloud compute ssl-certificates describe ehr-translator`.
+- **The BAA**: still a manual step with Google, not something Terraform can do — see the note near the end of this README.
+- Swap `EMAIL_BACKEND` (currently console/dev) for real SMTP/SendGrid in `run.tf`'s env list.
+
 ## Project layout
 
 - `server/` — Django + DRF backend
@@ -133,3 +291,7 @@ Open that URL to complete sign-in. To send real email instead (e.g. once deploye
 ## A privacy note on the Gemini free tier
 
 The annotation pipeline uses Gemini's free tier, whose terms permit Google to use free-tier inputs/outputs to improve their products. De-identifying the text before it's sent (see above) reduces exposure but is a mitigation, not a guarantee — it's a heuristic pass over labeled fields (name, DOB, MRN, address) and won't catch every way an identifier could appear in a real document. Worth knowing before uploading a real family member's report.
+
+## On HIPAA / BAA status
+
+This app is not currently HIPAA-compliant end to end, and no Business Associate Agreement (BAA) with Google is in place. A BAA is a legal agreement executed by an authorized admin of a GCP organization (through the account's Cloud sales/support relationship, or the Compliance section of the console for eligible accounts) — it's a procurement step, not a code change, and nothing in this repo can establish one on its own. Don't upload real patient records until that's actually signed and every service in use (Gemini/Vertex AI, Cloud DLP, Cloud Storage, Cloud SQL, Cloud Run) is confirmed to fall under Google's [HIPAA-covered services list](https://cloud.google.com/security/compliance/hipaa).

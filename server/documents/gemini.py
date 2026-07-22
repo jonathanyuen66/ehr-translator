@@ -11,10 +11,31 @@ _client = None
 
 
 def _get_client():
+    """Vertex AI when VERTEX_PROJECT_ID is configured — authenticated via
+    ADC (the Cloud Run runtime service account in prod, `gcloud auth
+    application-default login` locally), BAA-eligible, and explicitly not
+    used to train Google's models. Falls back to the plain API-key client
+    otherwise, so contributors without GCP project access keep the existing
+    free-tier local dev flow — same "optional locally, required in prod"
+    pattern as documents/dlp.py.
+    """
     global _client
     if _client is None:
-        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        if settings.VERTEX_PROJECT_ID:
+            _client = genai.Client(
+                vertexai=True,
+                project=settings.VERTEX_PROJECT_ID,
+                location=settings.VERTEX_LOCATION,
+            )
+        else:
+            _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
+
+
+def _get_model() -> str:
+    if settings.VERTEX_PROJECT_ID:
+        return settings.VERTEX_MODEL or settings.GEMINI_MODEL
+    return settings.GEMINI_MODEL
 
 
 LANGUAGE_NAMES = {
@@ -28,7 +49,7 @@ def _generate_json(prompt: str, attempts: int = 2) -> dict:
     last_error = None
     for attempt in range(attempts):
         response = _get_client().models.generate_content(
-            model=settings.GEMINI_MODEL,
+            model=_get_model(),
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json"),
         )

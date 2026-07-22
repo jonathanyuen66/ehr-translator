@@ -6,7 +6,7 @@ function stripExtension(filename) {
   return filename.replace(/\.pdf$/i, "");
 }
 
-export default function Dashboard({ user, onSignOut }) {
+export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
   const [documents, setDocuments] = useState(undefined); // undefined = loading
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -94,6 +94,10 @@ export default function Dashboard({ user, onSignOut }) {
         objective content of a document — always consult a qualified
         healthcare provider for interpretation and care decisions.
       </p>
+
+      <button className="btn-link how-it-works-link" onClick={onShowHowItWorks}>
+        How this works, and how your document is kept private →
+      </button>
 
       <form className="upload-form" onSubmit={handleUpload}>
         <input

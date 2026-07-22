@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { requestSignInLink } from "../api";
 
-export default function SignIn() {
+export default function SignIn({ onShowHowItWorks }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -39,6 +39,9 @@ export default function SignIn() {
       <p className="disclaimer">
         This app is invite-only. Enter your invited email to get a sign-in link.
       </p>
+      <button className="btn-link how-it-works-link" onClick={onShowHowItWorks}>
+        How this works, and how your document is kept private →
+      </button>
       <form className="signin-form" onSubmit={handleSubmit}>
         <input
           type="email"

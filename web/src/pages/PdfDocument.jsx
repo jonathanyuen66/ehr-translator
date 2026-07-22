@@ -4,12 +4,21 @@ import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-const PAGE_SCALE = 1.3;
+// Bounds on the fit-to-page scale computed below — a floor so a page never
+// renders illegibly small in a cramped viewport, a ceiling so a huge pane
+// doesn't blow a page up into an oversized canvas.
+const MIN_SCALE = 0.4;
+const MAX_SCALE = 2.5;
+const RESIZE_DEBOUNCE_MS = 150;
 
 // Renders a PDF onto canvas (one per page) with an invisible, positioned text
 // layer on top. Any of `terms` found in that text gets a highlight box drawn
 // over it, and hovering a highlighted box reports the term up via
 // onHoverTerm — that's what lets the annotation list light up in sync.
+//
+// Each page is scaled to fit fully inside the container (both width and
+// height) so a single page never needs internal scrolling to see all of it —
+// with multiple pages, you scroll *between* pages, never within one.
 export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
   const containerRef = useRef(null);
   const [error, setError] = useState("");
@@ -17,24 +26,34 @@ export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
-    const cleanupFns = [];
+    let cleanupFns = [];
+    let renderToken = 0;
+    let resizeTimer;
+    let pdf;
 
-    async function render() {
+    async function renderPages() {
       const container = containerRef.current;
-      if (!container) return;
-      container.innerHTML = "";
+      if (!container || !pdf) return;
+      const myToken = ++renderToken;
 
-      // disableStream/disableAutoFetch: blob: URLs can't serve HTTP range
-      // requests anyway, and Safari's ReadableStream/range-request handling
-      // for pdf.js has a history of being less reliable than Chromium's —
-      // forcing a plain full-download avoids that class of issue entirely.
-      const pdf = await getDocument({ url, disableStream: true, disableAutoFetch: true }).promise;
-      if (cancelled) return;
+      container.innerHTML = "";
+      cleanupFns.forEach((fn) => fn());
+      cleanupFns = [];
+
+      const style = getComputedStyle(container);
+      const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const paddingY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      const targetWidth = Math.max(container.clientWidth - paddingX, 100);
+      const targetHeight = Math.max(container.clientHeight - paddingY, 100);
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        if (cancelled) return;
+        if (cancelled || renderToken !== myToken) return;
         const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: PAGE_SCALE });
+
+        const baseViewport = page.getViewport({ scale: 1 });
+        const fitScale = Math.min(targetWidth / baseViewport.width, targetHeight / baseViewport.height);
+        const scale = Math.min(Math.max(fitScale, MIN_SCALE), MAX_SCALE);
+        const viewport = page.getViewport({ scale });
 
         const pageDiv = document.createElement("div");
         pageDiv.className = "pdf-page";
@@ -56,7 +75,7 @@ export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
         container.appendChild(pageDiv);
 
         await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-        if (cancelled) return;
+        if (cancelled || renderToken !== myToken) return;
 
         // getTextContent() (a plain resolved object) rather than
         // streamTextContent() (a ReadableStream) — sidesteps Safari's
@@ -69,16 +88,40 @@ export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
           viewport,
         });
         await textLayer.render();
-        if (cancelled) return;
+        if (cancelled || renderToken !== myToken) return;
 
         highlightTerms(textLayer, terms, onHoverTerm, cleanupFns);
       }
     }
 
-    render().catch((err) => setError(err.message));
+    async function load() {
+      // disableStream/disableAutoFetch: blob: URLs can't serve HTTP range
+      // requests anyway, and Safari's ReadableStream/range-request handling
+      // for pdf.js has a history of being less reliable than Chromium's —
+      // forcing a plain full-download avoids that class of issue entirely.
+      pdf = await getDocument({ url, disableStream: true, disableAutoFetch: true }).promise;
+      if (cancelled) return;
+      await renderPages();
+    }
+
+    load().catch((err) => setError(err.message));
+
+    // The container's available size depends on the viewport (sticky,
+    // viewport-height document pane), so a window resize can change how
+    // much room a page has to fit into — recompute layout only, not a full
+    // reload of the PDF itself.
+    function handleResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        renderPages().catch((err) => setError(err.message));
+      }, RESIZE_DEBOUNCE_MS);
+    }
+    window.addEventListener("resize", handleResize);
 
     return () => {
       cancelled = true;
+      clearTimeout(resizeTimer);
+      window.removeEventListener("resize", handleResize);
       cleanupFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

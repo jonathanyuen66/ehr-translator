@@ -1,0 +1,9 @@
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+domain_name = "" # e.g. "app.example.com" once you have one
+github_repo = "" # e.g. "jonathanyuen/ehr-translator" — required for CI to deploy
+app_image   = "us-docker.pkg.dev/cloudrun/container/hello" # replaced by CI after first build
+
+db_tier       = "db-g1-small"
+min_instances = 0
+max_instances = 3

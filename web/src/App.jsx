@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { fetchMe, logout, setToken } from "./api";
 import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
+import HowItWorks from "./pages/HowItWorks";
 
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const callbackHandled = useRef(false);
 
   // Pick up the auth token from /auth/callback#token=... on first load.
@@ -37,6 +39,10 @@ export default function App() {
     setUser(null);
   }
 
+  if (showHowItWorks) {
+    return <HowItWorks onBack={() => setShowHowItWorks(false)} />;
+  }
+
   if (user === undefined) {
     return (
       <main className="shell">
@@ -46,8 +52,8 @@ export default function App() {
   }
 
   return user ? (
-    <Dashboard user={user} onSignOut={handleSignOut} />
+    <Dashboard user={user} onSignOut={handleSignOut} onShowHowItWorks={() => setShowHowItWorks(true)} />
   ) : (
-    <SignIn />
+    <SignIn onShowHowItWorks={() => setShowHowItWorks(true)} />
   );
 }

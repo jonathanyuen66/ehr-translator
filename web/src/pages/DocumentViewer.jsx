@@ -139,7 +139,7 @@ export default function DocumentViewer({ document, onBack }) {
           {!url && !fileError && <p className="loading-state">Loading document…</p>}
           {url && (
             <>
-              <p>
+              <p className="pane-actions">
                 <a className="btn-link" href={url} target="_blank" rel="noopener noreferrer">
                   Open in new tab
                 </a>
