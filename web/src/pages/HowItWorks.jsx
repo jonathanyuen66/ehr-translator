@@ -81,12 +81,14 @@ function renderRedacted(text) {
   );
 }
 
-export default function HowItWorks({ onBack }) {
+// The actual "how this works" content, split out from the standalone page
+// below so the sign-in page can render it inline (filling the page as the
+// signed-out home page) without also inheriting the "← Back" navigation
+// that only makes sense when this is reached as its own separate screen
+// (Dashboard's own "How this works" link, still a click-through there).
+export function HowItWorksContent() {
   return (
-    <main className="shell">
-      <button className="btn-link" onClick={onBack}>
-        ← Back
-      </button>
+    <>
       <h1 className="doc-title">How this works, and why your document is safe</h1>
       <p className="disclaimer">
         This tool does not provide medical advice. It only helps explain the
@@ -94,7 +96,7 @@ export default function HowItWorks({ onBack }) {
         healthcare provider for interpretation and care decisions.
       </p>
 
-      <section className="hiw-section">
+      <section className="hiw-section" id="pipeline">
         <h2>What happens to your document</h2>
         <ol className="hiw-steps">
           <li>You upload a scan report or doctor's note as a PDF.</li>
@@ -133,28 +135,32 @@ export default function HowItWorks({ onBack }) {
       </section>
 
       <section className="hiw-section">
-        <h2>This isn't the same as pasting your document into ChatGPT</h2>
+        <h2>What this tool does — and doesn't do</h2>
         <p>
-          Typing or uploading a document directly into a general-purpose AI
-          chatbot sends it exactly as written — name, birthdate, medical
-          record number, and all — straight to that company's servers, with
-          nothing checking it on the way. This tool is built differently:
+          Reading a document is not the same as interpreting it. A
+          general-purpose AI chatbot would also explain a report like this —
+          and would also, confidently, invent a citation that doesn't exist,
+          and see your document exactly as written, identifying details
+          included. This tool is built to only ever do the first part, and to
+          strip identifying details before the AI sees anything at all:
         </p>
         <div className="hiw-compare">
-          <div className="hiw-compare-col hiw-compare-bad">
-            <h3>A general AI chatbot</h3>
+          <div className="hiw-compare-col hiw-compare-good">
+            <h3>What it does</h3>
             <ul>
-              <li>Sees your document exactly as written, identifying details included.</li>
-              <li>Free/consumer tiers may reuse what you type to improve their models.</li>
-              <li>No step exists to find or remove identifying details first.</li>
+              <li>Puts a plain-language explanation beside every term the report assumes you know.</li>
+              <li>Shows you which phrase an explanation belongs to — hover or tap one and the other lights up.</li>
+              <li>Writes in English, Spanish, or Traditional Chinese from the same source document.</li>
+              <li>Links each explanation to real, retrieved research you can open and read yourself.</li>
             </ul>
           </div>
-          <div className="hiw-compare-col hiw-compare-good">
-            <h3>This tool</h3>
+          <div className="hiw-compare-col hiw-compare-bad">
+            <h3>What it doesn't</h3>
             <ul>
-              <li>Identifying details are removed before the AI ever sees the text.</li>
-              <li>Two independent layers check for identifying details, so one method missing something is backed up by another.</li>
-              <li>Your documents and results are private to your account.</li>
+              <li>Doesn't tell you what your results mean for you.</li>
+              <li>Doesn't diagnose, stage, score, or predict anything.</li>
+              <li>Doesn't recommend treatment, or tell you whether to worry.</li>
+              <li>Doesn't cite what it can't show you — if no paper was found, it says so.</li>
             </ul>
           </div>
         </div>
@@ -184,6 +190,28 @@ export default function HowItWorks({ onBack }) {
           the details that identify <em>who</em> the document belongs to are
           removed.
         </p>
+      </section>
+
+      <section className="hiw-section">
+        <h2>Access &amp; privacy — small on purpose</h2>
+        <p>
+          This tool was built for a family reading their own reports, and
+          it's sized like it.
+        </p>
+        <div className="hiw-facts">
+          <div>
+            <h3>Invite only</h3>
+            <p>There is no sign-up page. An address has to be on the invite list before it can sign in at all.</p>
+          </div>
+          <div>
+            <h3>No passwords</h3>
+            <p>Enter your email and a one-time sign-in link arrives, good for fifteen minutes. Nothing to remember, nothing to leak.</p>
+          </div>
+          <div>
+            <h3>Your documents stay yours</h3>
+            <p>Uploads are private to the account that made them, and visible to no other user.</p>
+          </div>
+        </div>
       </section>
 
       <section className="hiw-section">
@@ -304,6 +332,17 @@ export default function HowItWorks({ onBack }) {
           </p>
         </div>
       </details>
+    </>
+  );
+}
+
+export default function HowItWorks({ onBack }) {
+  return (
+    <main className="shell">
+      <button className="btn-link" onClick={onBack}>
+        ← Back
+      </button>
+      <HowItWorksContent />
     </main>
   );
 }

@@ -36,7 +36,7 @@ class RequestLinkView(APIView):
         # ahead of deploy), and one less thing to keep in sync locally.
         link = request.build_absolute_uri(f"/auth/callback/?token={login_token.token}")
         send_mail(
-            subject="Your EHR Translator sign-in link",
+            subject="Your PlainMed sign-in link",
             message=f"Click to sign in (expires in 15 minutes): {link}",
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],

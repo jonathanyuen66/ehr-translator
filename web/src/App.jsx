@@ -54,6 +54,6 @@ export default function App() {
   return user ? (
     <Dashboard user={user} onSignOut={handleSignOut} onShowHowItWorks={() => setShowHowItWorks(true)} />
   ) : (
-    <SignIn onShowHowItWorks={() => setShowHowItWorks(true)} />
+    <SignIn />
   );
 }

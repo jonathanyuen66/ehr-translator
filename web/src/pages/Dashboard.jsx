@@ -83,7 +83,7 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
   return (
     <main className="shell">
       <div className="top-row">
-        <h1>EHR Translator</h1>
+        <h1>PlainMed</h1>
         <p className="account">
           Signed in as {user.email} <button onClick={onSignOut}>Sign out</button>
         </p>

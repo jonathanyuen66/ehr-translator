@@ -114,7 +114,7 @@ variable "mailgun_smtp_password" {
 }
 
 variable "default_from_email" {
-  description = "From address for outgoing email — must be on your verified Mailgun domain once one exists, e.g. \"EHR Translator <no-reply@mg.yourdomain.com>\"."
+  description = "From address for outgoing email — must be on your verified Mailgun domain once one exists, e.g. \"PlainMed <no-reply@mg.yourdomain.com>\"."
   type        = string
   default     = "no-reply@ehr-translator.local"
 }

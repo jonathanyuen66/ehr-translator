@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { requestSignInLink } from "../api";
+import { HowItWorksContent } from "./HowItWorks";
+import DemoPreview from "./DemoPreview";
 
-export default function SignIn({ onShowHowItWorks }) {
+export default function SignIn() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -34,14 +36,20 @@ export default function SignIn({ onShowHowItWorks }) {
   return (
     <main className="shell">
       <div className="top-row">
-        <h1>EHR Translator</h1>
+        <h1>PlainMed</h1>
       </div>
+
+      <p className="hero-eyebrow">Scan reports &amp; doctor's notes</p>
+      <h2 className="doc-title">Written for a doctor. Explained for you.</h2>
+      <p className="hero-sub">
+        Upload a report and read it beside a plain-language explanation of every term it
+        assumes you already know — in <strong>English, Spanish, or Traditional Chinese</strong>,
+        with a link to the published research behind each one.
+      </p>
+
       <p className="disclaimer">
         This app is invite-only. Enter your invited email to get a sign-in link.
       </p>
-      <button className="btn-link how-it-works-link" onClick={onShowHowItWorks}>
-        How this works, and how your document is kept private →
-      </button>
       <form className="signin-form" onSubmit={handleSubmit}>
         <input
           type="email"
@@ -55,6 +63,11 @@ export default function SignIn({ onShowHowItWorks }) {
         </button>
       </form>
       {error && <p className="error-text" role="alert">{error}</p>}
+
+      <DemoPreview />
+
+      <hr className="section-divider" />
+      <HowItWorksContent />
     </main>
   );
 }

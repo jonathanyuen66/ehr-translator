@@ -1,4 +1,4 @@
-# EHR Translator
+# PlainMed
 
 A private, invite-only web app that helps patients and their families understand medical scan reports and doctor's notes.
 
@@ -233,7 +233,7 @@ Sign-in emails (the magic link) go through [Mailgun](https://www.mailgun.com)'s 
 # in infra/terraform/terraform.tfvars
 mailgun_smtp_login    = "postmaster@mg.yourdomain.com"
 mailgun_smtp_password = "the-smtp-password-from-mailgun"
-default_from_email    = "EHR Translator <no-reply@mg.yourdomain.com>"
+default_from_email    = "PlainMed <no-reply@mg.yourdomain.com>"
 ```
 ```bash
 terraform apply
