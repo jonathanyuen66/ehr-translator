@@ -1,9 +1,38 @@
-project_id  = "your-gcp-project-id"
-region      = "us-central1"
-domain_name = "" # e.g. "app.example.com" once you have one
-github_repo = "" # e.g. "jonathanyuen/ehr-translator" — required for CI to deploy
-app_image   = "us-docker.pkg.dev/cloudrun/container/hello" # replaced by CI after first build
+project_id     = "your-gcp-project-id"
+region         = "us-central1"
+github_repo    = "" # e.g. "jonathanyuen/ehr-translator" — required for CI to deploy
+app_image      = "us-docker.pkg.dev/cloudrun/container/hello" # replaced by CI after first build
+frontend_image = "us-docker.pkg.dev/cloudrun/container/hello" # replaced by CI after first build
 
-db_tier       = "db-g1-small"
+# Leave blank for the first apply. After it completes, run
+# `terraform output cloud_run_api_url`, strip "https://", set it here, and
+# re-apply — required for ALLOWED_HOSTS to actually be correct (see variables.tf).
+backend_host_override = ""
+
+db_tier       = "db-f1-micro"
 min_instances = 0
 max_instances = 3
+
+# Leave blank to use GEMINI_MODEL's default on Vertex too — only set this if
+# that model ID 404s on Vertex specifically (its publisher-model catalog
+# doesn't always match the consumer/AI-Studio API's names/availability).
+vertex_model = ""
+
+# Your own domain, once bought and verified in Search Console (see
+# variables.tf). Leave blank to keep using raw Cloud Run *.run.app URLs —
+# no DNS/domain-mapping resources are created at all in that case.
+root_domain = "" # e.g. "plainmed.health"
+
+# From Mailgun's dashboard (Sending -> Domain settings -> SMTP credentials),
+# for the mg.ROOT_DOMAIN sending domain you add there. Leave blank and
+# sign-in emails just keep going to the console/logs instead of actually
+# sending — see README's Mailgun setup section.
+mailgun_smtp_login    = ""
+mailgun_smtp_password = ""
+default_from_email    = "" # e.g. "PlainMed <no-reply@mg.plainmed.health>" — must be on your verified Mailgun domain
+
+# Same Mailgun dashboard page as above, once mg.ROOT_DOMAIN is added there —
+# leave blank to skip the DKIM DNS record (mail still sends, just with
+# worse deliverability until this is set).
+mailgun_dkim_selector = "smtp"
+mailgun_dkim_value    = ""

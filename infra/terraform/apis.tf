@@ -14,6 +14,7 @@ locals {
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
     "storage.googleapis.com",
+    "dns.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "logging.googleapis.com",

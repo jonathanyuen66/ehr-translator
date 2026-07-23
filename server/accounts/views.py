@@ -30,7 +30,11 @@ class RequestLinkView(APIView):
             )
 
         login_token = LoginToken.objects.create(email=email)
-        link = f"{settings.BACKEND_URL}/auth/callback/?token={login_token.token}"
+        # Derived from the actual incoming request rather than a configured
+        # BACKEND_URL — correct regardless of what URL the backend is
+        # actually reachable at (Cloud Run's assigned URL isn't predictable
+        # ahead of deploy), and one less thing to keep in sync locally.
+        link = request.build_absolute_uri(f"/auth/callback/?token={login_token.token}")
         send_mail(
             subject="Your EHR Translator sign-in link",
             message=f"Click to sign in (expires in 15 minutes): {link}",

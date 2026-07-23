@@ -1,11 +1,26 @@
-output "lb_ip_address" {
-  description = "Static IP of the load balancer. Point DNS at this once you have a domain (var.domain_name)."
-  value       = google_compute_global_address.lb_ip.address
+output "cloud_run_api_url" {
+  description = "Cloud Run's own default URL for the api service — always reachable regardless of custom-domain/DNS/cert status, unlike api_custom_domain_url below. Useful for confirming a deploy succeeded independent of DNS, and as the CI FRONTEND_API_BASE_URL fallback before a custom domain is live."
+  value       = google_cloud_run_v2_service.api.uri
 }
 
-output "cloud_run_api_url" {
-  description = "Default *.run.app URL for the api service. Not reachable directly (ingress is restricted to the LB) — useful mainly for confirming a deploy succeeded via `gcloud run services describe`."
-  value       = google_cloud_run_v2_service.api.uri
+output "cloud_run_frontend_url" {
+  description = "Cloud Run's own default URL for the frontend service — same bootstrap purpose as cloud_run_api_url above."
+  value       = google_cloud_run_v2_service.frontend.uri
+}
+
+output "app_custom_domain_url" {
+  description = "The frontend's real, human-facing address once root_domain is set — null until then. DNS propagation plus Cloud Run's managed-cert provisioning can take up to ~24h after nameservers are updated; check `gcloud run domain-mappings describe --domain app.ROOT_DOMAIN --region REGION` for cert status before pointing real users at this."
+  value       = var.root_domain != "" ? "https://${local.app_domain}" : null
+}
+
+output "api_custom_domain_url" {
+  description = "Same as app_custom_domain_url, for the API — this is what the FRONTEND_API_BASE_URL GitHub Actions variable and default_from_email's domain should eventually point at, once confirmed live (same cert-provisioning caveat)."
+  value       = var.root_domain != "" ? "https://${local.api_domain}" : null
+}
+
+output "dns_name_servers" {
+  description = "Google's assigned name servers for the root_domain managed zone — set these as root_domain's nameservers at your registrar. Nothing above (app/api CNAMEs, Mailgun MX/TXT/DKIM records) resolves until that's done. Null until root_domain is set."
+  value       = var.root_domain != "" ? google_dns_managed_zone.primary[0].name_servers : null
 }
 
 output "artifact_registry_repo" {
@@ -15,10 +30,6 @@ output "artifact_registry_repo" {
 
 output "uploads_bucket_name" {
   value = google_storage_bucket.uploads.name
-}
-
-output "frontend_bucket_name" {
-  value = google_storage_bucket.frontend.name
 }
 
 output "cloud_sql_connection_name" {

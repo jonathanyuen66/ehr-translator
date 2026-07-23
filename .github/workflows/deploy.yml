@@ -1,5 +1,8 @@
-# Builds + deploys the Django API (Cloud Run) and the React frontend (GCS
-# bucket behind the same load balancer) on every push to main.
+# Builds + deploys the Django API and the React frontend, each its own
+# Cloud Run service with its own public URL, on every push to main. No load
+# balancer or CDN in front of either — both get custom-domain HTTPS via
+# Cloud Run domain mapping instead (infra/terraform/dns.tf, run.tf), once
+# root_domain is set.
 #
 # Auth is keyless: Workload Identity Federation exchanges GitHub's OIDC
 # token for short-lived GCP credentials scoped to this exact repo — no
@@ -12,9 +15,10 @@
 #   GCP_PROJECT_ID              - var.project_id
 #   GCP_REGION                  - var.region
 #   WORKLOAD_IDENTITY_PROVIDER  - output.workload_identity_provider
-#   FRONTEND_API_BASE_URL       - the LB's URL (https://<domain_name>, or
-#                                  http://<lb_ip_address> before a domain
-#                                  exists) — baked into the frontend build as
+#   FRONTEND_API_BASE_URL       - output.cloud_run_api_url (or, once the
+#                                  custom domain's cert has provisioned,
+#                                  output.api_custom_domain_url) — baked
+#                                  into the frontend build as
 #                                  VITE_API_BASE_URL
 
 name: Deploy
@@ -26,6 +30,7 @@ on:
 
 env:
   IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/ehr-translator/api:${{ github.sha }}
+  FRONTEND_IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/ehr-translator/frontend:${{ github.sha }}
 
 jobs:
   deploy-api:
@@ -74,20 +79,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build frontend
-        working-directory: web
-        env:
-          VITE_API_BASE_URL: ${{ vars.FRONTEND_API_BASE_URL }}
-        run: |
-          npm ci
-          npm run build
-
       - id: auth
         uses: google-github-actions/auth@v2
         with:
@@ -96,10 +87,16 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Sync build to frontend bucket
-        run: |
-          gsutil -m rsync -r -d web/dist "gs://${{ vars.GCP_PROJECT_ID }}-ehr-frontend"
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
 
-      - name: Invalidate CDN cache
+      - name: Build and push image
         run: |
-          gcloud compute url-maps invalidate-cdn-cache ehr-translator --path "/*" --async
+          docker build \
+            --build-arg VITE_API_BASE_URL="${{ vars.FRONTEND_API_BASE_URL }}" \
+            -t "$FRONTEND_IMAGE" web/
+          docker push "$FRONTEND_IMAGE"
+
+      - name: Deploy frontend service
+        run: |
+          gcloud run services update frontend --region="${{ vars.GCP_REGION }}" --image="$FRONTEND_IMAGE"

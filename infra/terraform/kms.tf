@@ -39,7 +39,11 @@ resource "google_kms_crypto_key_iam_member" "gcs_uploads_encrypter" {
   member        = "serviceAccount:${data.google_storage_project_service_account.gcs.email_address}"
 }
 
-# Same for the Cloud SQL service agent.
+# Same for the Cloud SQL service agent. This one is provisioned lazily —
+# it isn't reliably queryable for IAM binding immediately after the service
+# identity resource reports created (confirmed against the real API: "does
+# not exist" on the very first attempt right after creation), so a short
+# explicit wait sits between the two rather than racing it.
 resource "google_project_service_identity" "sqladmin" {
   provider = google-beta
   project  = var.project_id
@@ -48,8 +52,15 @@ resource "google_project_service_identity" "sqladmin" {
   depends_on = [google_project_service.required]
 }
 
+resource "time_sleep" "sqladmin_identity_propagation" {
+  depends_on      = [google_project_service_identity.sqladmin]
+  create_duration = "60s"
+}
+
 resource "google_kms_crypto_key_iam_member" "cloudsql_encrypter" {
   crypto_key_id = google_kms_crypto_key.cloudsql.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${google_project_service_identity.sqladmin.email}"
+
+  depends_on = [time_sleep.sqladmin_identity_propagation]
 }

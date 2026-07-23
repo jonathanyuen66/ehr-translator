@@ -5,6 +5,7 @@ terraform {
     google      = { source = "hashicorp/google", version = "~> 6.0" }
     google-beta = { source = "hashicorp/google-beta", version = "~> 6.0" }
     random      = { source = "hashicorp/random", version = "~> 3.6" }
+    time        = { source = "hashicorp/time", version = "~> 0.13" }
   }
 
   # Partial config: the state bucket itself must exist before this can be
@@ -29,6 +30,8 @@ provider "google-beta" {
   region  = var.region
 }
 
-locals {
-  has_domain = length(var.domain_name) > 0
+# Used to build Cloud Run's deterministic default URL (run.tf) without a
+# circular reference to the service's own .uri output.
+data "google_project" "current" {
+  project_id = var.project_id
 }

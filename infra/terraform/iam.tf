@@ -6,6 +6,14 @@ resource "google_service_account" "cloud_run_api" {
   display_name = "EHR Translator — Cloud Run runtime (api)"
 }
 
+# Deliberately granted nothing below — the frontend is a static nginx
+# container with no need to touch the database, GCS, DLP, Vertex, or any
+# secret, unlike cloud_run_api above.
+resource "google_service_account" "cloud_run_frontend" {
+  account_id   = "cloud-run-frontend-sa"
+  display_name = "EHR Translator — Cloud Run runtime (frontend)"
+}
+
 resource "google_service_account" "ci_deployer" {
   account_id   = "ci-deployer-sa"
   display_name = "EHR Translator — CI deploy identity"
@@ -51,6 +59,12 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_api_django_secret"
   member    = "serviceAccount:${google_service_account.cloud_run_api.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "cloud_run_api_mailgun" {
+  secret_id = google_secret_manager_secret.mailgun_smtp_password.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run_api.email}"
+}
+
 # --- ci_deployer: deploy/build only, no access to PHI, DB, DLP, or Vertex ---
 
 resource "google_project_iam_member" "ci_deployer_run_admin" {
@@ -59,10 +73,16 @@ resource "google_project_iam_member" "ci_deployer_run_admin" {
   member  = "serviceAccount:${google_service_account.ci_deployer.email}"
 }
 
-# Lets the deployer deploy Cloud Run resources *as* the runtime SA, without
-# granting the deployer any of the runtime SA's own data-access permissions.
+# Lets the deployer deploy Cloud Run resources *as* the runtime SAs, without
+# granting the deployer any of those SAs' own data-access permissions.
 resource "google_service_account_iam_member" "ci_deployer_act_as_runtime" {
   service_account_id = google_service_account.cloud_run_api.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.ci_deployer.email}"
+}
+
+resource "google_service_account_iam_member" "ci_deployer_act_as_frontend" {
+  service_account_id = google_service_account.cloud_run_frontend.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.ci_deployer.email}"
 }
@@ -72,12 +92,6 @@ resource "google_artifact_registry_repository_iam_member" "ci_deployer_ar_writer
   repository = google_artifact_registry_repository.app.repository_id
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.ci_deployer.email}"
-}
-
-resource "google_storage_bucket_iam_member" "ci_deployer_frontend" {
-  bucket = google_storage_bucket.frontend.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.ci_deployer.email}"
 }
 
 # --- Workload Identity Federation: keyless GitHub Actions auth ---

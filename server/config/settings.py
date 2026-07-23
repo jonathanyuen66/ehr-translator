@@ -14,8 +14,26 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key-change-me")
 DEBUG = os.environ.get("DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
+# Cloud Run terminates TLS at its own edge and forwards plain HTTP
+# internally, so without this, request.is_secure() is always False behind
+# it — which breaks CSRF validation for any POST submitted over HTTPS (e.g.
+# the admin login form). Safe locally too: only takes effect when the
+# X-Forwarded-Proto header is actually present, which it never is for a
+# direct, no-proxy local connection. Safe on Cloud Run specifically because
+# containers there have no public IP of their own — every request genuinely
+# passes through Cloud Run's own proxy, which is what sets this header, so
+# it can't be spoofed by an external client bypassing that proxy.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# A separate setting from ALLOWED_HOSTS since Django 4.0 — easy to miss,
+# and CSRF checks fail without it even when ALLOWED_HOSTS is already
+# correct. Empty by default (a no-op locally); set via env in any deployed
+# environment to the real, full origin(s) (scheme + host).
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()
+]
+
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5174")
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -118,8 +136,17 @@ DLP_PROJECT_ID = os.environ.get("DLP_PROJECT_ID", "")
 
 # In dev, emails print to the runserver console instead of actually sending —
 # the sign-in link shows up right in the terminal, same idea as grabbing the
-# link from the Firebase Auth Emulator UI during the earlier prototype.
+# link from the Firebase Auth Emulator UI during the earlier prototype. In
+# any deployed environment EMAIL_BACKEND is set to Django's SMTP backend
+# against Mailgun's SMTP relay (see infra/terraform/run.tf) — the four
+# EMAIL_HOST* settings below are only consulted when that backend is active,
+# so they're harmless no-ops locally.
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@ehr-translator.local")
 
 LANGUAGE_CODE = "en-us"

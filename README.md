@@ -34,7 +34,7 @@ Access is invite-only, and each user's uploaded documents are private to them.
 
 ## Status
 
-Phases 1–6 are built and working locally: auth, upload/storage, the PDF viewer, the annotation pipeline, styling, and multi-language support. Security hardening (Cloud DLP, CMEK-encrypted GCS storage, Vertex AI) and the GCP deployment infrastructure (Terraform, Cloud Run, Cloud SQL, Cloud Armor, audit logging) are built — see [Deploying to GCP](#deploying-to-gcp). Remaining: signing the actual BAA with Google, and a real domain/DNS/managed-cert cutover, both manual steps outside this codebase.
+Phases 1–6 are built and working locally: auth, upload/storage, the PDF viewer, the annotation pipeline, styling, and multi-language support. Security hardening (Cloud DLP, CMEK-encrypted GCS storage, Vertex AI) and the GCP deployment infrastructure (Terraform, Cloud Run, Cloud SQL, audit logging) are built — see [Deploying to GCP](#deploying-to-gcp). Remaining: signing the actual BAA with Google, both manual steps outside this codebase.
 
 ## Running it locally
 
@@ -87,7 +87,7 @@ npm install
 npm run dev
 ```
 
-Opens on `http://localhost:5173` by default. If either default port (8001 / 5173) is already taken on your machine, Vite/Django will pick another one — update `BACKEND_URL` and `FRONTEND_URL` in `server/.env`, and `VITE_API_BASE_URL` for the frontend (see `web/src/api.js`), to match whatever ports actually end up in use.
+Opens on `http://localhost:5173` by default. If either default port (8001 / 5173) is already taken on your machine, Vite/Django will pick another one — update `FRONTEND_URL` in `server/.env`, and `VITE_API_BASE_URL` for the frontend (see `web/src/api.js`), to match whatever ports actually end up in use.
 
 ## Login & invites
 
@@ -123,7 +123,7 @@ Locally, `EMAIL_BACKEND` is set to Django's console backend, so no real email is
 Click to sign in (expires in 15 minutes): http://localhost:8001/auth/callback/?token=...
 ```
 
-Open that URL to complete sign-in. To send real email instead (e.g. once deployed), change `EMAIL_BACKEND` in `.env` to a real backend (SMTP, SendGrid, etc.) with the matching credentials.
+Open that URL to complete sign-in. To send real email instead (e.g. once deployed), see [Mailgun setup](#mailgun-setup) below.
 
 ## Cloud DLP setup
 
@@ -217,11 +217,36 @@ gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
 
 **Model ID note**: Vertex's publisher model IDs don't always match AI Studio's friendly model names (currently `gemini-3.1-flash-lite` — see `GEMINI_MODEL`). Check the exact equivalent in the [Vertex Model Garden](https://console.cloud.google.com/vertex-ai/model-garden) before deploying, and set `VERTEX_MODEL` only if it differs from `GEMINI_MODEL`.
 
+## Mailgun setup
+
+> If you're deploying via `infra/terraform`, the Secret Manager secret and IAM binding are already handled by `secrets.tf`/`iam.tf` — you only need the Mailgun-side steps below plus `terraform.tfvars`. If you're also setting up a custom domain, do [Custom domain setup](#custom-domain-setup) first — it creates the MX/SPF DNS records Mailgun's domain verification looks for, so verification succeeds on the first try instead of needing a second pass once DNS exists.
+
+Sign-in emails (the magic link) go through [Mailgun](https://www.mailgun.com)'s SMTP relay in any deployed environment — it's the actual `EMAIL_BACKEND` switch: unset `mailgun_smtp_login`/`mailgun_smtp_password` and the app keeps using the console backend, where sign-in links go nowhere but the logs (see [Getting the sign-in link in local dev](#getting-the-sign-in-link-in-local-dev)).
+
+**Mailgun-side setup** (outside GCP — this is a separate account you create directly with Mailgun, not something Terraform can do for you):
+1. Sign up at [mailgun.com](https://www.mailgun.com) and add a sending domain — `mg.yourdomain.com` if you're using [Custom domain setup](#custom-domain-setup) above, or the sandbox domain Mailgun gives new accounts for testing only (sandbox domains can only send to a short list of manually authorized recipient addresses, so it won't work for real invited users until you add and verify a real domain).
+2. Verify the domain via the DNS records Mailgun gives you (SPF/MX/DKIM at your DNS registrar) — already in place if you did [Custom domain setup](#custom-domain-setup) step 2 first; otherwise add them manually wherever the domain's DNS is hosted.
+3. Dashboard → Sending → Domain settings → SMTP credentials — copy the SMTP username (`postmaster@mg.yourdomain.com`) and password.
+
+**Wire it up:**
+```bash
+# in infra/terraform/terraform.tfvars
+mailgun_smtp_login    = "postmaster@mg.yourdomain.com"
+mailgun_smtp_password = "the-smtp-password-from-mailgun"
+default_from_email    = "EHR Translator <no-reply@mg.yourdomain.com>"
+```
+```bash
+terraform apply
+```
+No image rebuild needed — this is all environment variables and a Secret Manager value, picked up by a new Cloud Run revision on `apply` alone.
+
+**Verify**: request a sign-in link for real, then check Mailgun's dashboard (Sending → Logs) for a delivery record, and check Cloud Run's own logs if it doesn't arrive — an SMTP auth failure shows up there, not as a user-facing error.
+
 ## Deploying to GCP
 
-`infra/terraform/` stands up the whole environment: a private CMEK-encrypted Cloud SQL instance (no public IP), the uploads and frontend buckets from above, Cloud Run (API) and a one-off migrate job, an external HTTPS load balancer routing `/api/*`, `/admin/*`, `/auth/*` to the API and everything else to the frontend bucket, a Cloud Armor WAF policy in front of both, least-privilege service accounts, and Data Access audit logging.
+`infra/terraform/` stands up the whole environment: a CMEK-encrypted Cloud SQL instance, the uploads bucket from above, two Cloud Run services (API and frontend) and a one-off migrate job, least-privilege service accounts, and Data Access audit logging. There's no load balancer or Cloud Armor in front of anything — the API and frontend are each their own Cloud Run service with their own GCP-provided URL, which is meaningfully cheaper and simpler for an invite-only, family-scale app than putting a load balancer and WAF in front of low-value, low-traffic infrastructure. A custom domain (see [Custom domain setup](#custom-domain-setup) below) uses Cloud Run's own domain mapping for HTTPS instead of a load balancer's managed cert. Cloud SQL has a public IP for the same reason — Cloud Run's Cloud SQL integration connects via the IAM-authenticated Cloud SQL Auth Proxy regardless of public/private IP, so this doesn't mean the database accepts arbitrary connections; it just means there's no VPC/connector layer between them. Neither of these trade-offs affects HIPAA eligibility — encryption at rest/in transit, IAM access control, audit logging, and BAA coverage are all unrelated to network topology; they were defense-in-depth on top of what's actually required.
 
-**This is real, billed GCP infrastructure — nothing here should be applied without reading through what it creates first**, especially `sql.tf` (a running Postgres instance) and `run.tf`/`lb.tf` (a load balancer with a static IP, billed whether or not it's in front of a domain yet).
+**This is real, billed GCP infrastructure — nothing here should be applied without reading through what it creates first**, especially `sql.tf` (a running Postgres instance, the main ongoing cost).
 
 ### One-time bootstrap
 
@@ -238,7 +263,7 @@ cp terraform.tfvars.example terraform.tfvars   # fill in project_id at minimum
 
 ### Apply order
 
-The resources have real dependencies (Cloud SQL needs the private-services peering, Cloud Run needs the service accounts and secrets, the load balancer needs the Cloud Run service to exist first). A single `terraform plan` / `terraform apply` handles the graph correctly on its own — no need to apply file-by-file — but expect the first apply to take a while (Cloud SQL instance creation alone is often 5-10 minutes), and **review the plan output before confirming**, every time:
+A single `terraform plan` / `terraform apply` handles the resource graph correctly on its own — no need to apply file-by-file — but expect the first apply to take a while (Cloud SQL instance creation alone is often 5-10 minutes), and **review the plan output before confirming**, every time:
 
 ```bash
 terraform plan
@@ -246,6 +271,8 @@ terraform apply
 ```
 
 The very first apply uses `var.app_image`'s placeholder value (a public "hello" container) since no real image exists yet — that's expected. Push a real image and update the Cloud Run service afterward (this is exactly what the CI workflow automates going forward).
+
+**Required second step after the first apply**: Cloud Run's assigned URL isn't predictable ahead of creation, so `ALLOWED_HOSTS` starts wrong (a best-effort guess). Run `terraform output cloud_run_api_url`, strip the `https://`, set it as `backend_host_override` in `terraform.tfvars`, and re-apply — until then, Django rejects every request with `DisallowedHost`.
 
 ### First deploy (before CI is wired up)
 
@@ -255,7 +282,11 @@ REGION=us-central1
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/ehr-translator/api:manual"
 
 gcloud auth configure-docker "$REGION-docker.pkg.dev"
-docker build -t "$IMAGE" server/
+# --platform=linux/amd64 matters on Apple Silicon — a plain `docker build`
+# targets the Mac's native arm64, which Cloud Run rejects outright ("must
+# support amd64/linux"). CI doesn't need this (GitHub's runners are amd64
+# already), only local builds do.
+docker build --platform=linux/amd64 -t "$IMAGE" server/
 docker push "$IMAGE"
 
 gcloud run jobs update migrate --region="$REGION" --image="$IMAGE"
@@ -263,23 +294,40 @@ gcloud run jobs execute migrate --region="$REGION" --wait
 
 gcloud run services update api --region="$REGION" --image="$IMAGE"
 
-cd web && VITE_API_BASE_URL="http://$(terraform -chdir=../infra/terraform output -raw lb_ip_address)" npm run build
-gsutil -m rsync -r -d dist "gs://$PROJECT_ID-ehr-frontend"
+FRONTEND_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/ehr-translator/frontend:manual"
+docker build --platform=linux/amd64 \
+  --build-arg VITE_API_BASE_URL="$(terraform -chdir=../infra/terraform output -raw cloud_run_api_url)" \
+  -t "$FRONTEND_IMAGE" web/
+docker push "$FRONTEND_IMAGE"
+gcloud run services update frontend --region="$REGION" --image="$FRONTEND_IMAGE"
 ```
 
-Visit `http://<lb_ip_address>` (from `terraform output lb_ip_address`) to smoke-test — plain HTTP, since there's no domain/managed cert yet (see below).
+Visit `terraform output cloud_run_frontend_url` to smoke-test.
 
 ### CI/CD
 
 [.github/workflows/deploy.yml](.github/workflows/deploy.yml) automates the above on every push to `main`, authenticating via Workload Identity Federation (no service account key ever stored in GitHub). It needs:
 1. `github_repo` set in `terraform.tfvars` to your `"owner/repo"`, applied, so the WIF trust and `ci-deployer-sa` exist.
-2. Four repository variables in GitHub (Settings → Secrets and variables → Actions → Variables) — `GCP_PROJECT_ID`, `GCP_REGION`, `WORKLOAD_IDENTITY_PROVIDER` (from `terraform output workload_identity_provider`), and `FRONTEND_API_BASE_URL` (the LB IP or domain).
+2. Four repository variables in GitHub (Settings → Secrets and variables → Actions → Variables) — `GCP_PROJECT_ID`, `GCP_REGION`, `WORKLOAD_IDENTITY_PROVIDER` (from `terraform output workload_identity_provider`), and `FRONTEND_API_BASE_URL` (from `terraform output cloud_run_api_url`).
+
+### Custom domain setup
+
+Wires your own domain (e.g. `plainmed.health`) into both the webapp and Mailgun, via Cloud Run domain mapping and a Cloud DNS managed zone — no load balancer needed (see [Deploying to GCP](#deploying-to-gcp) above for why that's the deliberate trade-off here).
+
+1. **Verify domain ownership in Search Console**, under the same Google account/org used for `terraform apply` — [search.google.com/search-console/welcome](https://search.google.com/search-console/welcome), "Domain" property type. Cloud Run domain mappings fail outright without this; it's a one-time manual step, same category as the Mailgun account and the BAA below.
+2. Set `root_domain = "plainmed.health"` in `terraform.tfvars`, then `terraform apply`. This creates:
+   - A Cloud DNS managed zone for the domain.
+   - `app.plainmed.health` -> the frontend Cloud Run service, `api.plainmed.health` -> the API Cloud Run service (both via `google_cloud_run_domain_mapping`, each getting its own Google-managed cert).
+   - Mailgun sending-domain DNS records for `mg.plainmed.health` (MX, SPF; DKIM once you've set `mailgun_dkim_value`, see below).
+3. **Point the domain's nameservers at Google's**: run `terraform output dns_name_servers` and set those as `plainmed.health`'s nameservers at whatever registrar you bought it from. Nothing above resolves until this propagates (can take a few hours).
+4. **Mailgun side**: add `mg.plainmed.health` as a sending domain in Mailgun's dashboard (see [Mailgun setup](#mailgun-setup) below) — its DNS verification will find the MX/SPF records from step 2 already in place. Copy the DKIM TXT record value it gives you into `mailgun_dkim_value` in `terraform.tfvars`, then `terraform apply` again.
+5. **Cert check**: `gcloud run domain-mappings describe --domain app.plainmed.health --region "$REGION"` (and again for `api.plainmed.health`) — wait for `CertificateProvisioned` before relying on either custom domain. Can take up to ~24h after DNS propagates.
+6. Once both certs are live, switch the `FRONTEND_API_BASE_URL` GitHub Actions repository variable from `terraform output cloud_run_api_url` to `terraform output api_custom_domain_url`, and push (or re-run the workflow) so the frontend build picks up the custom API domain. Update `default_from_email` in `terraform.tfvars` to an address on `mg.plainmed.health` if it isn't already.
 
 ### Before real patient data touches this
 
-- **Domain + managed cert**: set `domain_name` in `terraform.tfvars`, point DNS at `lb_ip_address`, re-apply. The Google-managed cert stays `PROVISIONING` until DNS resolves — check with `gcloud compute ssl-certificates describe ehr-translator`.
 - **The BAA**: still a manual step with Google, not something Terraform can do — see the note near the end of this README.
-- Swap `EMAIL_BACKEND` (currently console/dev) for real SMTP/SendGrid in `run.tf`'s env list.
+- If traffic ever outgrows family scale, reconsider the load balancer + Cloud Armor + private-IP Cloud SQL setup this deployment deliberately traded away for cost and simplicity.
 
 ## Project layout
 
