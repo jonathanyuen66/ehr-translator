@@ -8,7 +8,18 @@ from rest_framework.response import Response
 from . import gemini
 from .models import Annotation, Document
 from .serializers import AnnotationSerializer, DocumentSerializer
-from .services import build_annotations_for_language, build_findings_with_candidates, extract_text
+from .services import (
+    PersonalInfoSelected,
+    build_annotations_for_language,
+    build_findings_with_candidates,
+    explain_ad_hoc_term,
+    extract_text,
+)
+
+# A generous but bounded limit — this becomes a Gemini + PubMed call per
+# request, so it's a cost/abuse guard, not a UX constraint (nobody is
+# selecting a 300-character phrase and expecting a single clean "term").
+MAX_EXPLAIN_TERM_LENGTH = 300
 
 logger = logging.getLogger(__name__)
 
@@ -112,3 +123,43 @@ class DocumentViewSet(viewsets.ModelViewSet):
             defaults={"summary": result["summary"], "items": result["items"]},
         )
         return Response(AnnotationSerializer(annotation).data)
+
+    @action(detail=True, methods=["post"])
+    def explain(self, request, pk=None):
+        """On-demand explanation for a phrase the reader selected themselves
+        in the document viewer — the complement to `annotations` above,
+        which only ever returns identify_findings's own automatic picks.
+        """
+        document = self.get_object()
+        term = (request.data.get("term") or "").strip()
+        language = request.data.get("language", "en")
+
+        if not term:
+            return Response({"detail": "Select some text first."}, status=400)
+        if len(term) > MAX_EXPLAIN_TERM_LENGTH:
+            return Response({"detail": "Select a shorter phrase."}, status=400)
+        if language not in gemini.LANGUAGE_NAMES:
+            return Response({"detail": f"Unsupported language '{language}'."}, status=400)
+        if document.status != Document.Status.READY:
+            return Response({"detail": "Document isn't ready yet."}, status=409)
+
+        try:
+            item = explain_ad_hoc_term(document, term, language)
+        except PersonalInfoSelected:
+            # Deliberately no document/term in this log line, unlike the
+            # except below — logging the very thing we just refused to send
+            # onward would defeat the point.
+            logger.info("Refused to explain a selection that looked like personal information")
+            return Response(
+                {
+                    "detail": "That looks like it might be personal information (like a name or "
+                    "date), not a clinical term — for your privacy, we don't send that to be "
+                    "explained. Try selecting a medical term or measurement instead."
+                },
+                status=400,
+            )
+        except Exception:
+            logger.exception("Ad-hoc explanation failed for document %s term %r", document.id, term)
+            return Response({"detail": "Could not explain that right now."}, status=502)
+
+        return Response(item)

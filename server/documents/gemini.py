@@ -71,7 +71,7 @@ def identify_findings(deidentified_text: str) -> list[dict]:
     prompt = f"""You are helping a family member understand a medical scan report
 or doctor's note. Below is the de-identified text of the document.
 
-Identify up to 6 key clinical findings, measurements, or terms that a
+Identify up to 10 key clinical findings, measurements, or terms that a
 layperson would need explained. For each finding, give the exact term or
 phrase as it appears in the text, and 2-4 concise PubMed search keywords
 (in English, since that's what PubMed indexes) that would find relevant
@@ -86,6 +86,43 @@ Document text:
 ---"""
     result = _generate_json(prompt)
     return result.get("findings", [])
+
+
+def explain_term(term_with_candidates: dict, deidentified_text: str, language: str = "en") -> dict:
+    """On-demand counterpart to generate_annotations, for one ad-hoc term the
+    reader selected in the document themselves rather than one
+    identify_findings picked automatically. Same grounding rule applies —
+    the model may only cite PMIDs from term_with_candidates["candidates"],
+    never invent one.
+    """
+    language_name = LANGUAGE_NAMES.get(language, language)
+    term = term_with_candidates["term"]
+    prompt = f"""Write your entire response in {language_name}.
+
+You are helping a family member understand a medical scan report or doctor's
+note. Below is the de-identified document text, followed by one specific
+term or phrase the reader selected themselves and wants explained, along
+with candidate PubMed sources for it.
+
+Write a plain-language explanation (as if explaining to a 10-year-old) of
+what "{term}" means in the context of this document. You may ONLY cite
+PubMed sources from the "candidates" list below — never invent a PMID or
+cite one that isn't listed. If none of the candidates are actually relevant,
+leave "citations" empty and still explain the term in general plain
+language without a citation.
+
+Respond with strict JSON only, in this shape:
+{{"explanation": "...", "citations": [{{"pmid": "...", "title": "..."}}]}}
+
+Document text:
+---
+{deidentified_text}
+---
+
+Term to explain: "{term}"
+Candidate sources:
+{json.dumps(term_with_candidates["candidates"], indent=2)}"""
+    return _generate_json(prompt)
 
 
 def generate_annotations(findings_with_candidates: list[dict], deidentified_text: str, language: str = "en") -> dict:

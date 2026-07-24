@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { getDocument, GlobalWorkerOptions, TextLayer } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import ExplainPopover from "./ExplainPopover";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+// Selections shorter than this are almost always an accidental click/drag,
+// not someone actually trying to select a phrase — no point popping up
+// "Explain this" for a stray single character.
+const MIN_SELECTION_LENGTH = 2;
 
 // Bounds on the fit-to-page scale computed below — a floor so a page never
 // renders illegibly small in a cramped viewport, a ceiling so a huge pane
@@ -19,9 +25,10 @@ const RESIZE_DEBOUNCE_MS = 150;
 // Each page is scaled to fit fully inside the container (both width and
 // height) so a single page never needs internal scrolling to see all of it —
 // with multiple pages, you scroll *between* pages, never within one.
-export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
+export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm, documentId, language, onExplained }) {
   const containerRef = useRef(null);
   const [error, setError] = useState("");
+  const [selection, setSelection] = useState(null); // { text, rect } | null
 
   useEffect(() => {
     if (!url) return;
@@ -135,8 +142,62 @@ export default function PdfDocument({ url, terms, hoveredTerm, onHoverTerm }) {
     });
   }, [hoveredTerm]);
 
+  // A new document means any pending selection popover is now pointing at
+  // text that no longer exists on screen.
+  useEffect(() => {
+    setSelection(null);
+  }, [url]);
+
+  // Lets the reader select any phrase — not just the pre-highlighted
+  // findings above — and ask for an explanation of it specifically. Scroll
+  // dismisses rather than repositions: a fixed-position popover would
+  // otherwise visually drift away from the text it's actually anchored to.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    function handleMouseUp() {
+      const sel = window.getSelection();
+      const text = sel ? sel.toString().trim() : "";
+      if (!text || text.length < MIN_SELECTION_LENGTH || sel.rangeCount === 0) return;
+      if (!container.contains(sel.anchorNode)) return;
+
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return;
+      setSelection({ text, rect });
+    }
+
+    function handleScroll() {
+      setSelection(null);
+    }
+
+    container.addEventListener("mouseup", handleMouseUp);
+    container.addEventListener("scroll", handleScroll);
+    return () => {
+      container.removeEventListener("mouseup", handleMouseUp);
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   if (error) return <p className="error-text" role="alert">{error}</p>;
-  return <div ref={containerRef} className="pdf-pages" />;
+  return (
+    <>
+      {/* Never a place to put React-rendered children — renderPages() above
+          does container.innerHTML = "" and rebuilds it imperatively on every
+          pass, which would silently desync from anything React thinks it
+          owns underneath it. */}
+      <div ref={containerRef} className="pdf-pages" />
+      {selection && (
+        <ExplainPopover
+          documentId={documentId}
+          language={language}
+          selection={selection}
+          onExplained={onExplained}
+          onDismiss={() => setSelection(null)}
+        />
+      )}
+    </>
+  );
 }
 
 // Finds each term inside this page's text and marks the overlapping spans so

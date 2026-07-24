@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchAnnotations, fetchDocumentFile } from "../api";
 import PdfDocument from "./PdfDocument";
+import AskAboutTerm from "./AskAboutTerm";
 
 const LANGUAGES = [
   { code: "en", label: "English" },
@@ -59,6 +60,23 @@ export default function DocumentViewer({ document, onBack }) {
     [annotations]
   );
 
+  // The explain popover's result — merged in here (not just shown inline in
+  // the popover) so a selected term joins the findings list and gets
+  // highlighted like any other, from here on in this session.
+  function handleExplained(item) {
+    setAnnotations((current) => {
+      if (!current) return current;
+      const existingIndex = current.items.findIndex(
+        (i) => i.term.toLowerCase() === item.term.toLowerCase()
+      );
+      const items =
+        existingIndex === -1
+          ? [...current.items, item]
+          : current.items.map((i, idx) => (idx === existingIndex ? item : i));
+      return { ...current, items };
+    });
+  }
+
   return (
     <main className="shell">
       <div className="viewer-head">
@@ -96,6 +114,11 @@ export default function DocumentViewer({ document, onBack }) {
           {annotations && (
             <>
               <p className="summary-block">{annotations.summary}</p>
+              <p className="viewer-hint">
+                These are the terms we judged most important to explain. Don't see one you're
+                confused about? Select any other text in the document, or type one below, to ask
+                about it too.
+              </p>
               <ol className="findings-list">
                 {annotations.items.map((item) => (
                   <li
@@ -129,6 +152,7 @@ export default function DocumentViewer({ document, onBack }) {
                   </li>
                 ))}
               </ol>
+              <AskAboutTerm documentId={document.id} language={language} onExplained={handleExplained} />
             </>
           )}
         </div>
@@ -149,6 +173,9 @@ export default function DocumentViewer({ document, onBack }) {
                 terms={terms}
                 hoveredTerm={hoveredTerm}
                 onHoverTerm={setHoveredTerm}
+                documentId={document.id}
+                language={language}
+                onExplained={handleExplained}
               />
             </>
           )}

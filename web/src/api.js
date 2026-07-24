@@ -66,6 +66,13 @@ export function fetchAnnotations(id, language = "en") {
   return request(`/api/documents/${id}/annotations/?language=${language}`);
 }
 
+export function explainTerm(id, term, language = "en") {
+  return request(`/api/documents/${id}/explain/`, {
+    method: "POST",
+    body: JSON.stringify({ term, language }),
+  });
+}
+
 export async function fetchDocumentFile(id) {
   const token = getToken();
   const headers = {};

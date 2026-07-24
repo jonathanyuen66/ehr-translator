@@ -580,6 +580,42 @@ label.btn {
   color: var(--muted);
 }
 
+.viewer-hint {
+  margin: 0.6rem 0 1.2rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.ask-about-term {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.ask-about-term .viewer-hint {
+  margin: 0 0 0.6rem;
+}
+
+.ask-about-term-form {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+}
+
+.ask-about-term-form input {
+  flex: 1;
+  min-width: 12rem;
+  font: inherit;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+}
+
 /* term-highlight is defined below for the real PDF text-layer overlay
    (plain <span>s); the demo reuses the same look on real <button>s, which
    need their own reset since buttons don't inherit font/border/color. */
@@ -782,6 +818,55 @@ button.term-highlight {
 
 .term-highlight-active {
   background: color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+/* ---- Explain popover (select-any-text on-demand explanation) ---- */
+.explain-popover {
+  position: fixed;
+  z-index: 50;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.explain-popover-btn {
+  width: 100%;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.explain-popover-loading {
+  margin: 0;
+}
+
+.explain-popover-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.explain-popover-result .finding-term {
+  font-size: 0.92rem;
+}
+
+/* .finding-term::before numbers itself off a CSS counter scoped to
+   .findings-list (counter-reset: clause) — outside that context (here) an
+   uninitialized counter renders as a literal "§0", not "no number". */
+.explain-popover-result .finding-term::before {
+  content: none;
+}
+
+.explain-popover-result .finding-explain {
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.explain-popover-close {
+  align-self: flex-end;
+  margin-top: 0.3rem;
 }
 
 /* ---- How it works: extras (viewer-vs-AI note, HIPAA roadmap, details) ---- */

@@ -14,6 +14,7 @@ Upload a scan report or doctor's note (PDF), and view it side by side with:
 - Citations to relevant PubMed research papers backing each annotation, so explanations are traceable rather than taken on faith.
 - The ability to switch annotation language — support for English, Spanish, and Traditional Chinese.
 - Hover a highlighted phrase in the original document and its explanation lights up alongside it (and vice versa), so it's always clear what an annotation is actually referring to.
+- The AI picks up to 10 terms per document automatically — not exhaustive, so you can also select any other phrase in the document, or type one into the box below the findings list, to get it explained the same way, on demand.
 
 Access is invite-only, and each user's uploaded documents are private to them.
 
@@ -30,6 +31,7 @@ Access is invite-only, and each user's uploaded documents are private to them.
   4. Real papers are retrieved from PubMed (NCBI E-utilities) for each finding — this is the *only* source material the model is ever allowed to cite. Any citation it returns is re-validated against that real list afterward; nothing it invents makes it to the screen.
   5. A second Gemini call writes the plain-language summary and per-finding explanations in the requested language.
 - **Document viewer**: the PDF is rendered client-side onto canvas with `pdf.js`, with an invisible text layer on top used to locate each finding's term in the actual document — that's what drives the hover-highlighting between the document and the annotations.
+- **On-demand explanations**, for anything the automatic pass didn't pick: select any text in the document (or type a phrase into the box below the findings list) and `documents/services.py`'s `explain_ad_hoc_term` runs the same retrieval-then-generation pipeline — PubMed search, a grounded Gemini call, citation re-validation — for just that one term, then caches it (`Document.findings` / `Annotation.items`) so it behaves exactly like any other finding from then on: highlighted, listed, reused across languages. Unlike the automatic pass, which only ever lets Gemini see already-redacted text, a selected phrase can be anything in the original document — so it's run through the same four-layer redaction pipeline *itself* before ever reaching PubMed or Gemini; if that pipeline would redact anything in it, the request is refused rather than sent.
 - **Auth**: invite-only, passwordless magic-link email sign-in. See [Login & invites](#login--invites) below.
 
 ## Status
