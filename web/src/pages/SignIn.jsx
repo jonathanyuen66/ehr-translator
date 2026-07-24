@@ -3,7 +3,7 @@ import { requestSignInLink } from "../api";
 import { HowItWorksContent } from "./HowItWorks";
 import DemoPreview from "./DemoPreview";
 
-export default function SignIn() {
+export default function SignIn({ sessionExpired }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -38,6 +38,13 @@ export default function SignIn() {
       <div className="top-row">
         <h1>PlainMed</h1>
       </div>
+
+      {sessionExpired && (
+        <p className="error-text" role="alert">
+          You were signed out — this can happen if you signed out from another tab or device
+          (accounts share one sign-in across all of them). Please sign in again.
+        </p>
+      )}
 
       <p className="hero-eyebrow">Scan reports &amp; doctor's notes</p>
       <h2 className="doc-title">Written for a doctor. Explained for you.</h2>

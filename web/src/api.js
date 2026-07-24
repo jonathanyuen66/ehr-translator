@@ -12,12 +12,25 @@ export function setToken(token) {
   }
 }
 
+// Accounts share a single token across every tab/device (see
+// accounts/models.py — Token.user is a OneToOneField, not per-session), so
+// signing out in one tab deletes the exact token another open tab is still
+// using. Without this, that other tab would just show DRF's raw "Invalid
+// token." text as a generic inline error on whatever it was doing, with no
+// indication that the fix is "sign in again." App.jsx listens for this event
+// and falls back to the sign-in screen instead.
+function notifyUnauthorized() {
+  setToken(null);
+  window.dispatchEvent(new Event("auth:invalid"));
+}
+
 async function request(path, options = {}) {
   const token = getToken();
   const headers = { "Content-Type": "application/json", ...options.headers };
   if (token) headers.Authorization = `Token ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401 && token) notifyUnauthorized();
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
@@ -81,6 +94,7 @@ export async function fetchDocumentFile(id) {
   // A plain <iframe src="..."> load can't attach an Authorization header,
   // so the PDF is fetched here and handed to the viewer as a blob URL instead.
   const res = await fetch(`${API_BASE}/api/documents/${id}/file/`, { headers });
+  if (res.status === 401 && token) notifyUnauthorized();
   if (!res.ok) throw new Error(`Failed to load file (${res.status})`);
   return res.blob();
 }
@@ -102,6 +116,7 @@ export async function uploadDocument(file, displayName) {
     headers,
     body: formData,
   });
+  if (res.status === 401 && token) notifyUnauthorized();
   if (!res.ok) {
     let message = `Upload failed (${res.status})`;
     try {

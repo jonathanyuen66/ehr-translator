@@ -7,7 +7,21 @@ import HowItWorks from "./pages/HowItWorks";
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const callbackHandled = useRef(false);
+
+  // Fired by api.js whenever a request comes back 401 mid-session (most
+  // commonly: signed out from another tab or device — accounts share one
+  // token, not one per session). Falls back to sign-in with an explanation
+  // instead of leaving whatever screen was open showing a raw DRF error.
+  useEffect(() => {
+    function handleInvalidAuth() {
+      setUser(null);
+      setSessionExpired(true);
+    }
+    window.addEventListener("auth:invalid", handleInvalidAuth);
+    return () => window.removeEventListener("auth:invalid", handleInvalidAuth);
+  }, []);
 
   // Pick up the auth token from /auth/callback#token=... on first load.
   // Guarded by a ref (not just the [] dep array) because React StrictMode
@@ -54,6 +68,6 @@ export default function App() {
   return user ? (
     <Dashboard user={user} onSignOut={handleSignOut} onShowHowItWorks={() => setShowHowItWorks(true)} />
   ) : (
-    <SignIn />
+    <SignIn sessionExpired={sessionExpired} />
   );
 }
