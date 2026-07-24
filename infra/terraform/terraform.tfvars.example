@@ -31,6 +31,11 @@ mailgun_smtp_login    = ""
 mailgun_smtp_password = ""
 default_from_email    = "" # e.g. "PlainMed <no-reply@mg.plainmed.health>" — must be on your verified Mailgun domain
 
+# Where to get an approve/deny link when someone not on the invite list
+# tries to sign in (accounts/views.py). Leave blank to skip notifying
+# anyone — those attempts are still recorded in Django admin either way.
+owner_email = ""
+
 # Same Mailgun dashboard page as above, once mg.ROOT_DOMAIN is added there —
 # leave blank to skip the DKIM DNS record (mail still sends, just with
 # worse deliverability until this is set).

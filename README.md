@@ -99,7 +99,9 @@ There are no passwords. Signing in works like this:
 
 ### Adding someone to the invite list
 
-Only invited emails can sign in — there's no public sign-up. Add one via the Django shell:
+Only invited emails can sign in — there's no public sign-up. If someone not on the list tries to sign in, `RequestLinkView` (`accounts/views.py`) emails `OWNER_EMAIL` an approve/deny link for that specific request — approving adds them to the invite list and is idempotent (clicking it twice, or a link-prescanning bot getting there first, can't double-invite or re-decide). `OWNER_EMAIL` is blank by default (see `server/.env.example` / `owner_email` in `infra/terraform/terraform.tfvars`) — with it unset, those attempts are just recorded silently (Django admin → Access requests) instead of emailing anyone.
+
+You can also add someone directly, without waiting for them to try signing in first, via the Django shell:
 
 ```bash
 cd server && source ../.venv/bin/activate
@@ -109,7 +111,7 @@ Invite.objects.get_or_create(email='someone@example.com')
 "
 ```
 
-There's no admin UI for this yet. To browse/manage invites and documents via `/admin/` instead, create a superuser:
+Create a superuser to browse/manage invites, access requests, and documents via `/admin/`:
 
 ```bash
 python manage.py createsuperuser

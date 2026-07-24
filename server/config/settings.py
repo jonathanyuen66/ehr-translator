@@ -149,6 +149,12 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@ehr-translator.local")
 
+# Where RequestLinkView emails when someone not on the invite list tries to
+# sign in (accounts/views.py) — blank by default, same optional-locally
+# pattern as everything else: no owner address configured just means those
+# attempts go unnoticed instead of erroring.
+OWNER_EMAIL = os.environ.get("OWNER_EMAIL", "")
+
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True

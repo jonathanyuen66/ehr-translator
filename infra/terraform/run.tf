@@ -68,6 +68,7 @@ locals {
     { name = "EMAIL_USE_TLS", value = "true" },
     { name = "EMAIL_HOST_USER", value = var.mailgun_smtp_login },
     { name = "DEFAULT_FROM_EMAIL", value = var.default_from_email },
+    { name = "OWNER_EMAIL", value = var.owner_email },
   ]
 }
 

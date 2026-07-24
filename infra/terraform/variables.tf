@@ -119,6 +119,12 @@ variable "default_from_email" {
   default     = "no-reply@ehr-translator.local"
 }
 
+variable "owner_email" {
+  description = "Where accounts.views.RequestLinkView emails an approve/deny link when someone not on the invite list tries to sign in. Leave blank to skip notifying anyone — those attempts are still recorded (Django admin -> Access requests), just silently."
+  type        = string
+  default     = ""
+}
+
 variable "mailgun_dkim_selector" {
   description = "DKIM selector Mailgun assigned your sending domain (Sending -> Domain settings -> DNS records -> the TXT record name is \"SELECTOR._domainkey.mg.yourdomain.com\"). Mailgun defaults to \"smtp\" for newly added domains; only override if yours differs."
   type        = string

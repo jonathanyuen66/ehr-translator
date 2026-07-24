@@ -59,6 +59,32 @@ class Invite(models.Model):
         return self.email
 
 
+class AccessRequest(models.Model):
+    """One row per uninvited email that's tried to sign in. The owner's
+    notification email (RequestLinkView._notify_owner, views.py) includes
+    approve/deny links built from `token` — the same single-use-token-in-a-
+    link pattern LoginToken already uses for sign-in, just unauthenticated
+    on the owner's side too since there's no admin login flow to gate it on.
+    """
+
+    class Decision(models.TextChoices):
+        APPROVED = "approved", "Approved"
+        DENIED = "denied", "Denied"
+
+    email = models.EmailField()
+    token = models.CharField(max_length=64, unique=True, default=generate_token)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    notified_at = models.DateTimeField(null=True, blank=True)
+    decision = models.CharField(max_length=10, choices=Decision.choices, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+
+    def __str__(self):
+        return f"{self.email} ({self.decision or 'pending'})"
+
+
 class LoginToken(models.Model):
     """A single-use, time-limited magic-link token."""
 
