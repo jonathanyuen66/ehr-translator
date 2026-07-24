@@ -54,3 +54,49 @@ class Annotation(models.Model):
 
     def __str__(self):
         return f"{self.document_id} ({self.language})"
+
+
+class DocumentAccessLog(models.Model):
+    """The application-level half of "a full audit trail" — Cloud Audit Logs
+    (infra/terraform/audit-logging.tf) already record that *the app's shared
+    service account* touched a GCS object or DB row, but every user's access
+    goes through that same service account, so GCP's own logs can't tell
+    users apart. This is what actually answers "did user X access document
+    Y, and when" — the specific claim made in the app's own "How this works"
+    copy.
+
+    user/document are SET_NULL, not CASCADE: a genuine audit trail has to
+    outlive the thing it's about — deleting a document (or, hypothetically,
+    a user) shouldn't erase the historical record that it was once accessed.
+    The denormalized snapshot fields are what keep a post-deletion row
+    actually readable once the live FK is gone.
+    """
+
+    class Action(models.TextChoices):
+        UPLOAD = "upload", "Uploaded"
+        VIEW = "view", "Viewed"
+        DOWNLOAD = "download", "Downloaded"
+        DELETE = "delete", "Deleted"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    user_email = models.EmailField()
+    document = models.ForeignKey(Document, on_delete=models.SET_NULL, null=True, related_name="access_logs")
+    document_display_name = models.CharField(max_length=255)
+    action = models.CharField(max_length=10, choices=Action.choices)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-occurred_at"]
+
+    def __str__(self):
+        return f"{self.user_email} {self.action} {self.document_display_name} at {self.occurred_at}"
+
+    @classmethod
+    def record(cls, user, document, action):
+        cls.objects.create(
+            user=user,
+            user_email=user.email,
+            document=document,
+            document_display_name=document.display_name,
+            action=action,
+        )

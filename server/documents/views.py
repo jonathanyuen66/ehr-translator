@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from . import gemini
-from .models import Annotation, Document
+from .models import Annotation, Document, DocumentAccessLog
 from .serializers import AnnotationSerializer, DocumentSerializer
 from .services import (
     PersonalInfoSelected,
@@ -44,6 +44,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             display_name=display_name,
             content_hash=serializer.content_hash,
         )
+        DocumentAccessLog.record(self.request.user, document, DocumentAccessLog.Action.UPLOAD)
         # Synchronous for now (no Celery/task queue) — fine at family scale;
         # revisit only if extraction becomes noticeably slow.
         try:
@@ -71,6 +72,11 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 logger.exception("Annotation generation failed for document %s", document.id)
 
     def perform_destroy(self, instance):
+        # Logged before, not after: SET_NULL on DocumentAccessLog.document
+        # needs the row it's about to be nulled-out on to exist and be
+        # deleted afterward, and instance.display_name has to still be
+        # readable to snapshot it.
+        DocumentAccessLog.record(self.request.user, instance, DocumentAccessLog.Action.DELETE)
         instance.file.delete(save=False)
         instance.delete()
 
@@ -79,6 +85,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         # get_object() runs against get_queryset(), so a non-owner requesting
         # someone else's document id gets a 404, not the file.
         document = self.get_object()
+        DocumentAccessLog.record(request.user, document, DocumentAccessLog.Action.DOWNLOAD)
         return FileResponse(
             document.file.open("rb"),
             content_type="application/pdf",
@@ -88,6 +95,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def annotations(self, request, pk=None):
         document = self.get_object()
+        DocumentAccessLog.record(request.user, document, DocumentAccessLog.Action.VIEW)
         language = request.query_params.get("language", "en")
 
         if language not in gemini.LANGUAGE_NAMES:
@@ -162,4 +170,5 @@ class DocumentViewSet(viewsets.ModelViewSet):
             logger.exception("Ad-hoc explanation failed for document %s term %r", document.id, term)
             return Response({"detail": "Could not explain that right now."}, status=502)
 
+        DocumentAccessLog.record(request.user, document, DocumentAccessLog.Action.VIEW)
         return Response(item)

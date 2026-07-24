@@ -89,6 +89,18 @@ resource "google_cloud_run_v2_service" "api" {
       max_instance_count = var.max_instances
     }
 
+    # Direct VPC egress — only how this reaches Cloud SQL's private IP
+    # (network.tf/sql.tf). PRIVATE_RANGES_ONLY keeps everything else (Vertex
+    # AI, PubMed, Mailgun) on Cloud Run's normal public egress path, which is
+    # what avoids needing a Cloud NAT gateway here.
+    vpc_access {
+      network_interfaces {
+        network    = google_compute_network.main.id
+        subnetwork = google_compute_subnetwork.main.id
+      }
+      egress = "PRIVATE_RANGES_ONLY"
+    }
+
     containers {
       image = var.app_image
 
@@ -177,6 +189,17 @@ resource "google_cloud_run_v2_job" "migrate" {
     template {
       service_account = google_service_account.cloud_run_api.email
       max_retries     = 1
+
+      # Same reason as the api service above — this job connects to Cloud
+      # SQL directly too, and would otherwise lose connectivity the moment
+      # the instance goes private-IP-only.
+      vpc_access {
+        network_interfaces {
+          network    = google_compute_network.main.id
+          subnetwork = google_compute_subnetwork.main.id
+        }
+        egress = "PRIVATE_RANGES_ONLY"
+      }
 
       containers {
         image   = var.app_image

@@ -35,23 +35,23 @@ const ROADMAP = [
       "Google's own industry-standard scanner for identifiers, running alongside our system rather than instead of it.",
   },
   {
-    status: "progress",
+    status: "live",
     title: "Encrypted storage with keys we control",
     detail: "Documents encrypted at rest using our own managed encryption keys, not just a provider default.",
   },
   {
-    status: "progress",
+    status: "live",
     title: "A database with no public entry point",
     detail: "The database that stores your account and results is unreachable from the open internet, full stop.",
   },
   {
-    status: "progress",
+    status: "live",
     title: "An enterprise AI backend instead of a consumer one",
     detail:
-      "Moving off the consumer AI API to Google's enterprise offering, which doesn't train its models on your data and is eligible for a formal healthcare-data agreement.",
+      "Runs on Google's enterprise AI offering instead of the consumer API, which doesn't train its models on your data and is eligible for a formal healthcare-data agreement.",
   },
   {
-    status: "progress",
+    status: "live",
     title: "A full audit trail",
     detail: "A logged record of exactly when and how each document was accessed.",
   },

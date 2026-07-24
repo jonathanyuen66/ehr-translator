@@ -17,25 +17,17 @@ resource "google_sql_database_instance" "main" {
     tier              = var.db_tier
     availability_type = "ZONAL"
 
-    # Public IP, not the private-IP-only + VPC connector design this
-    # originally had. Cloud Run's Cloud SQL integration (run.tf) connects via
-    # the Cloud SQL Auth Proxy regardless of public/private IP — it
-    # authenticates with IAM-issued ephemeral client certificates, not a bare
-    # TCP connection, so this doesn't mean "open to the internet" the way a
-    # traditional exposed database port would. ssl_mode enforces encryption
-    # on any connection attempt at the database layer too, as a second
-    # guarantee beyond what the proxy already does.
-    #
-    # Traded away: the "no network path to the database exists at all" property
-    # the private-IP + VPC connector design had. Not a HIPAA requirement (the
-    # required safeguards — encryption at rest/in transit, IAM access control,
-    # audit logging — all still hold); it was defense-in-depth on top of that.
-    # authorized_networks is deliberately left empty: no direct TCP allowlist
-    # is configured, so the Auth Proxy's IAM-authenticated path is the only
-    # practical way in.
+    # Private IP only — no network path to this instance exists outside the
+    # VPC (network.tf) at all, not even an IAM-gated one. Cloud Run reaches
+    # it via Direct VPC egress (run.tf's vpc_access block) rather than the
+    # older Serverless VPC Access connector, so this doesn't bring back the
+    # connector's standing per-hour cost this project avoided originally.
+    # ssl_mode still enforces encryption on any connection attempt at the
+    # database layer too, on top of what the Auth Proxy already does.
     ip_configuration {
-      ipv4_enabled = true
-      ssl_mode     = "ENCRYPTED_ONLY"
+      ipv4_enabled    = false
+      private_network = google_compute_network.main.id
+      ssl_mode        = "ENCRYPTED_ONLY"
     }
 
     backup_configuration {
@@ -54,6 +46,7 @@ resource "google_sql_database_instance" "main" {
 
   depends_on = [
     google_kms_crypto_key_iam_member.cloudsql_encrypter,
+    google_service_networking_connection.private_service_access,
   ]
 }
 
