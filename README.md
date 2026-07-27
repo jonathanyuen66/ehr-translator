@@ -15,6 +15,7 @@ Upload a scan report or doctor's note (PDF), and view it side by side with:
 - The ability to switch annotation language — support for English, Spanish, and Traditional Chinese.
 - Hover a highlighted phrase in the original document and its explanation lights up alongside it (and vice versa), so it's always clear what an annotation is actually referring to.
 - The AI picks up to 10 terms per document automatically — not exhaustive, so you can also select any other phrase in the document, or type one into the box below the findings list, to get it explained the same way, on demand.
+- A dashboard that greets you with what's actually ready vs. still processing, drag-and-drop upload with no separate confirm step, and a decluttered "⋯" menu for rename/delete instead of always-visible action links.
 
 Access is invite-only, and each user's uploaded documents are private to them.
 
@@ -32,11 +33,12 @@ Access is invite-only, and each user's uploaded documents are private to them.
   5. A second Gemini call writes the plain-language summary and per-finding explanations in the requested language.
 - **Document viewer**: the PDF is rendered client-side onto canvas with `pdf.js`, with an invisible text layer on top used to locate each finding's term in the actual document — that's what drives the hover-highlighting between the document and the annotations.
 - **On-demand explanations**, for anything the automatic pass didn't pick: select any text in the document (or type a phrase into the box below the findings list) and `documents/services.py`'s `explain_ad_hoc_term` runs the same retrieval-then-generation pipeline — PubMed search, a grounded Gemini call, citation re-validation — for just that one term, then caches it (`Document.findings` / `Annotation.items`) so it behaves exactly like any other finding from then on: highlighted, listed, reused across languages. Unlike the automatic pass, which only ever lets Gemini see already-redacted text, a selected phrase can be anything in the original document — so it's run through the same four-layer redaction pipeline *itself* before ever reaching PubMed or Gemini; if that pipeline would redact anything in it, the request is refused rather than sent.
+- **Access logging**: every upload/view/download/delete against a document is recorded (`documents/models.py`'s `DocumentAccessLog`) — the piece of "a full audit trail" that GCP's own infra-level Cloud Audit Logs can't provide on their own, since every user's access goes through the same shared service account and those logs alone can't tell users apart. Read-only in Django admin; survives the document itself being deleted.
 - **Auth**: invite-only, passwordless magic-link email sign-in. See [Login & invites](#login--invites) below.
 
 ## Status
 
-Phases 1–6 are built and working locally: auth, upload/storage, the PDF viewer, the annotation pipeline, styling, and multi-language support. Security hardening (Cloud DLP, CMEK-encrypted GCS storage, Vertex AI) and the GCP deployment infrastructure (Terraform, Cloud Run, Cloud SQL, audit logging) are built — see [Deploying to GCP](#deploying-to-gcp). Remaining: signing the actual BAA with Google, both manual steps outside this codebase.
+Live in production at [app.plainmed.health](https://app.plainmed.health) (invite-only): auth, upload/storage, the PDF viewer, the automatic + on-demand annotation pipeline, multi-language support, and the dashboard UI are all built and deployed. Security hardening is in place too — Cloud DLP, CMEK-encrypted storage, a private-IP-only database, Vertex AI, and a per-document access audit trail (distinct from GCP's own infra-level audit logging — see [How it works](#how-it-works)) — see [Deploying to GCP](#deploying-to-gcp). Remaining: signing the actual BAA with Google (a manual step outside this codebase) and, if traffic ever outgrows family scale, a WAF (see [Before real patient data touches this](#before-real-patient-data-touches-this)).
 
 ## Running it locally
 
@@ -98,6 +100,8 @@ There are no passwords. Signing in works like this:
 1. Enter your email on the sign-in screen.
 2. If that email is on the invite list, the app sends a one-time sign-in link (valid 15 minutes).
 3. Click it and you're signed in.
+
+Signing out anywhere signs you out everywhere — accounts share a single token across every tab and device (DRF's `Token.user` is a `OneToOneField`, not per-session), not one per browser tab. If a token stops being valid mid-session (most commonly: signed out from another tab), the app notices on the next request and returns you to the sign-in screen with an explanation, rather than showing a raw backend error.
 
 ### Adding someone to the invite list
 
@@ -219,7 +223,7 @@ gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
   --role="roles/aiplatform.user"
 ```
 
-**Model ID note**: Vertex's publisher model IDs don't always match AI Studio's friendly model names (currently `gemini-3.1-flash-lite` — see `GEMINI_MODEL`). Check the exact equivalent in the [Vertex Model Garden](https://console.cloud.google.com/vertex-ai/model-garden) before deploying, and set `VERTEX_MODEL` only if it differs from `GEMINI_MODEL`.
+**Model ID note**: Vertex's publisher model catalog doesn't always carry the same model IDs as the consumer/AI Studio API — confirmed directly, not hypothetically: `GEMINI_MODEL`'s default (`gemini-3.1-flash-lite`) 404s on Vertex for this project/region, even though it works fine through the plain API-key client. Check the exact equivalent in the [Vertex Model Garden](https://console.cloud.google.com/vertex-ai/model-garden) before deploying — or probe candidate IDs directly against the `google-genai` client, which is how this was actually diagnosed — and set `vertex_model` in `terraform.tfvars` (or `VERTEX_MODEL` locally) if it differs. `gemini-2.5-flash-lite` is the confirmed-working equivalent as of this deployment.
 
 ## Mailgun setup
 
@@ -337,8 +341,9 @@ Wires your own domain (e.g. `plainmed.health`) into both the webapp and Mailgun,
 
 - `server/` — Django + DRF backend
   - `accounts/` — auth, invites, magic-link sign-in
-  - `documents/` — upload, text extraction, the PubMed/Gemini annotation pipeline
+  - `documents/` — upload, text extraction, the PubMed/Gemini annotation pipeline, access logging
 - `web/` — React (Vite) frontend
+- `infra/terraform/` — GCP deployment infra (Cloud Run, Cloud SQL, VPC, DNS, IAM) — see [Deploying to GCP](#deploying-to-gcp)
 
 ## A privacy note on the Gemini free tier
 

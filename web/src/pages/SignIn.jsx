@@ -75,6 +75,12 @@ export default function SignIn({ sessionExpired }) {
 
       <hr className="section-divider" />
       <HowItWorksContent />
+
+      <footer className="site-footer">
+        Created by Jonathan Yuen (
+        <a href="mailto:jonathanyuen66@gmail.com">jonathanyuen66@gmail.com</a>
+        ) — questions welcome.
+      </footer>
     </main>
   );
 }

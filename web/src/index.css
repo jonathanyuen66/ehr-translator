@@ -504,6 +504,19 @@ label.btn {
   border-top: 1px solid var(--line);
 }
 
+.site-footer {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.site-footer a {
+  color: inherit;
+}
+
 /* ---- Home page: hero ---- */
 .hero-eyebrow {
   font-family: system-ui, sans-serif;
