@@ -120,14 +120,14 @@ def auth_callback(request):
 
 
 def access_request_approve(request, token):
-    return _decide_access_request(token, AccessRequest.Decision.APPROVED)
+    return _decide_access_request(request, token, AccessRequest.Decision.APPROVED)
 
 
 def access_request_deny(request, token):
-    return _decide_access_request(token, AccessRequest.Decision.DENIED)
+    return _decide_access_request(request, token, AccessRequest.Decision.DENIED)
 
 
-def _decide_access_request(token, decision):
+def _decide_access_request(request, token, decision):
     access_request = AccessRequest.objects.filter(token=token).first()
     if access_request is None:
         return HttpResponse("This link is invalid.", status=404)
@@ -149,8 +149,37 @@ def _decide_access_request(token, decision):
     access_request.decided_at = timezone.now()
     access_request.save(update_fields=["decision", "decided_at"])
 
+    if decision == AccessRequest.Decision.APPROVED:
+        _send_approval_email(request, access_request.email)
+
     verb = "approved and added to the invite list" if decision == AccessRequest.Decision.APPROVED else "denied"
     return HttpResponse(f"{access_request.email} has been {verb}.")
+
+
+def _send_approval_email(request, email):
+    """Lets someone who was just approved actually get in, instead of the
+    only trace of their approval being the owner's plain-text confirmation
+    page — issues a fresh sign-in link the same way RequestLinkView.post
+    does, so it's a normal 15-minute magic link, not something the owner
+    has to relay by hand.
+    """
+    login_token = LoginToken.objects.create(email=email)
+    link = request.build_absolute_uri(f"/auth/callback/?token={login_token.token}")
+    try:
+        send_mail(
+            subject="You're approved for PlainMed",
+            message=(
+                "Good news — you've been approved to sign in to PlainMed.\n\n"
+                f"Click to sign in (expires in 15 minutes): {link}"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+        )
+    except Exception:
+        # The invite itself is already saved at this point — a failed
+        # notification shouldn't turn into a 500 for whoever clicked
+        # approve, and the person can still request a link normally.
+        logger.exception("Failed to send approval email to %s", email)
 
 
 class MeView(APIView):
