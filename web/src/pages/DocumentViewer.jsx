@@ -2,17 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchAnnotations, fetchDocumentFile } from "../api";
 import PdfDocument from "./PdfDocument";
 import AskAboutTerm from "./AskAboutTerm";
+import { useLanguage } from "../i18n";
 
-const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Español" },
-  { code: "zh-Hant", label: "繁體中文" },
-];
-
-export default function DocumentViewer({ document, onBack }) {
+export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
+  const { language, t } = useLanguage();
   const [url, setUrl] = useState(null);
   const [fileError, setFileError] = useState("");
-  const [language, setLanguage] = useState("en");
   const [annotations, setAnnotations] = useState(undefined); // undefined = loading
   const [annotationsError, setAnnotationsError] = useState("");
   const [hoveredTerm, setHoveredTerm] = useState(null);
@@ -78,47 +73,28 @@ export default function DocumentViewer({ document, onBack }) {
   }
 
   return (
-    <main className="shell">
+    <main className="shell shell-viewer">
       <div className="viewer-head">
         <button className="btn-link" onClick={onBack}>
-          ← Back to documents
+          {t("common.backToDocuments")}
         </button>
         <h1 className="doc-title">{document.display_name}</h1>
-        <div className="lang-switch">
-          {LANGUAGES.map((l) => (
-            <button
-              key={l.code}
-              className={l.code === language ? "active" : ""}
-              onClick={() => setLanguage(l.code)}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       <p className="disclaimer" role="alert" aria-live="polite">
-        This tool does not provide medical advice. It only helps explain the
-        objective content of a document — always consult a qualified
-        healthcare provider for interpretation and care decisions.
+        {t("common.disclaimer")}
       </p>
 
       <div className="viewer-grid">
         <div className="annotations-pane">
           {annotations === undefined && !annotationsError && (
-            <p className="loading-state">
-              Generating annotations… this can take a little while the first time.
-            </p>
+            <p className="loading-state">{t("documentViewer.generatingAnnotations")}</p>
           )}
           {annotationsError && <p className="error-text" role="alert">{annotationsError}</p>}
           {annotations && (
             <>
               <p className="summary-block">{annotations.summary}</p>
-              <p className="viewer-hint">
-                These are the terms we judged most important to explain. Don't see one you're
-                confused about? Select any other text in the document, or type one below, to ask
-                about it too.
-              </p>
+              <p className="viewer-hint">{t("documentViewer.theseAreTerms")}</p>
               <ol className="findings-list">
                 {annotations.items.map((item) => (
                   <li
@@ -147,7 +123,7 @@ export default function DocumentViewer({ document, onBack }) {
                         ))}
                       </ul>
                     ) : (
-                      <p className="no-source">No clear supporting source found.</p>
+                      <p className="no-source">{t("common.noSourceFound")}</p>
                     )}
                   </li>
                 ))}
@@ -158,14 +134,26 @@ export default function DocumentViewer({ document, onBack }) {
         </div>
 
         <div className="document-pane">
-          <span className="pane-label">Original document</span>
+          <span className="pane-label">{t("documentViewer.originalDocument")}</span>
+          <p className="viewer-original-note">{t("documentViewer.originalNote")}</p>
+          <details className="viewer-why-details">
+            <summary>{t("documentViewer.whySummary")}</summary>
+            <p>{t("documentViewer.whyBody")}</p>
+            {onShowHowItWorks && (
+              <p>
+                <button className="btn-link" onClick={onShowHowItWorks}>
+                  {t("documentViewer.whyLink")}
+                </button>
+              </p>
+            )}
+          </details>
           {fileError && <p className="error-text" role="alert">{fileError}</p>}
-          {!url && !fileError && <p className="loading-state">Loading document…</p>}
+          {!url && !fileError && <p className="loading-state">{t("documentViewer.loadingDocument")}</p>}
           {url && (
             <>
               <p className="pane-actions">
                 <a className="btn-link" href={url} target="_blank" rel="noopener noreferrer">
-                  Open in new tab
+                  {t("common.openInNewTab")}
                 </a>
               </p>
               <PdfDocument

@@ -1,12 +1,5 @@
 import { useState } from "react";
-
-// Mirrors DocumentViewer's own language list exactly — this demo previews
-// the real feature, not a decorative approximation of it.
-const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Español" },
-  { code: "zh-Hant", label: "繁體中文" },
-];
+import { useLanguage } from "../i18n";
 
 // Synthetic PET/CT snippet, not a real patient — chosen because it's dense
 // with exactly the kind of jargon a layperson would need explained.
@@ -50,7 +43,7 @@ const FINDINGS = [
 ];
 
 export default function DemoPreview() {
-  const [language, setLanguage] = useState("en");
+  const { language, t } = useLanguage();
   const [hoveredTerm, setHoveredTerm] = useState(FINDINGS[0].term);
 
   function Term({ term, children }) {
@@ -68,25 +61,14 @@ export default function DemoPreview() {
   }
 
   return (
-    <section className="demo-panel" aria-label="Sample of how a document is explained">
+    <section className="demo-panel" aria-label={t("demoPreview.ariaLabel")}>
       <div className="demo-panel-head">
-        <span className="pane-label">Sample report — synthetic data, not a real patient</span>
-        <div className="lang-switch">
-          {LANGUAGES.map((l) => (
-            <button
-              key={l.code}
-              className={l.code === language ? "active" : ""}
-              onClick={() => setLanguage(l.code)}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
+        <span className="pane-label">{t("demoPreview.sampleReportLabel")}</span>
       </div>
 
       <div className="demo-grid">
         <div className="demo-doc-pane">
-          <span className="pane-label">Original document — always in its own language</span>
+          <span className="pane-label">{t("demoPreview.originalDocumentAlways")}</span>
           <p className="demo-doc-text">
             There is a <Term term="hypermetabolic">hypermetabolic</Term> right{" "}
             <Term term="paratracheal lymph node">paratracheal lymph node</Term> measuring 1.4 ×
@@ -117,10 +99,7 @@ export default function DemoPreview() {
         </div>
       </div>
 
-      <p className="demo-hint">
-        Hover or tap a highlighted phrase, or switch languages above — this is the actual
-        annotation view you'll get for your own documents, not a mockup.
-      </p>
+      <p className="demo-hint">{t("demoPreview.hint")}</p>
     </section>
   );
 }

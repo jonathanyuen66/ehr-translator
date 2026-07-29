@@ -3,8 +3,10 @@ import { fetchMe, logout, setToken } from "./api";
 import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
 import HowItWorks from "./pages/HowItWorks";
+import { LanguageSwitch, useLanguage } from "./i18n";
 
 export default function App() {
+  const { t } = useLanguage();
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -53,21 +55,27 @@ export default function App() {
     setUser(null);
   }
 
+  let content;
   if (showHowItWorks) {
-    return <HowItWorks onBack={() => setShowHowItWorks(false)} />;
-  }
-
-  if (user === undefined) {
-    return (
+    content = <HowItWorks onBack={() => setShowHowItWorks(false)} />;
+  } else if (user === undefined) {
+    content = (
       <main className="shell">
-        <p className="loading-state">Loading…</p>
+        <p className="loading-state">{t("common.loading")}</p>
       </main>
     );
+  } else if (user) {
+    content = (
+      <Dashboard user={user} onSignOut={handleSignOut} onShowHowItWorks={() => setShowHowItWorks(true)} />
+    );
+  } else {
+    content = <SignIn sessionExpired={sessionExpired} />;
   }
 
-  return user ? (
-    <Dashboard user={user} onSignOut={handleSignOut} onShowHowItWorks={() => setShowHowItWorks(true)} />
-  ) : (
-    <SignIn sessionExpired={sessionExpired} />
+  return (
+    <>
+      <LanguageSwitch />
+      {content}
+    </>
   );
 }

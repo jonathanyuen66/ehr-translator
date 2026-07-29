@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { deleteDocument, listDocuments, renameDocument, uploadDocument } from "../api";
 import DocumentViewer from "./DocumentViewer";
+import { Rich, useLanguage } from "../i18n";
 
 // There's no separate "name" field on the account (accounts/models.py —
 // email is the only identity field), so the greeting derives one from the
@@ -12,36 +13,36 @@ function firstNameFromEmail(email) {
   return letters.charAt(0).toUpperCase() + letters.slice(1);
 }
 
-const STATUS_PILLS = {
-  ready: { label: "Explanation ready", className: "pill-ready" },
-  processing: { label: "Still processing", className: "pill-processing" },
-  failed: { label: "Couldn't be processed", className: "pill-failed" },
-};
+function statusPill(status, t) {
+  switch (status) {
+    case "ready":
+      return { label: t("dashboard.statusReady"), className: "pill-ready" };
+    case "processing":
+      return { label: t("dashboard.statusProcessing"), className: "pill-processing" };
+    case "failed":
+      return { label: t("dashboard.statusFailed"), className: "pill-failed" };
+    default:
+      return { label: status, className: "pill-processing" };
+  }
+}
 
-function greetingSubline(documents) {
+function greetingSubline(documents, t) {
   if (!documents || documents.length === 0) {
-    return "Add your first report below to see how it works.";
+    return t("dashboard.greetingEmpty");
   }
   const ready = documents.filter((d) => d.status === "ready").length;
   const processing = documents.filter((d) => d.status === "processing").length;
   const failed = documents.filter((d) => d.status === "failed").length;
 
   const parts = [];
-  if (ready > 0) {
-    parts.push(`${ready} report${ready === 1 ? " is" : "s are"} ready to read.`);
-  }
-  if (processing > 0) {
-    parts.push(
-      `${processing === 1 ? "Another" : `${processing} more`} still being explained — you don't need to wait around for ${processing === 1 ? "it" : "them"}.`
-    );
-  }
-  if (failed > 0) {
-    parts.push(`${failed} couldn't be processed — you can remove ${failed === 1 ? "it" : "them"} and try again.`);
-  }
-  return parts.length > 0 ? parts.join(" ") : "Nothing new since you were last here.";
+  if (ready > 0) parts.push(t("dashboard.reportsReady", { n: ready }));
+  if (processing > 0) parts.push(t("dashboard.moreProcessing", { n: processing }));
+  if (failed > 0) parts.push(t("dashboard.couldntProcessed", { n: failed }));
+  return parts.length > 0 ? parts.join(" ") : t("dashboard.nothingNew");
 }
 
 export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
+  const { t } = useLanguage();
   const [documents, setDocuments] = useState(undefined); // undefined = loading
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -91,7 +92,7 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
 
   async function handleDelete(id) {
     setOpenMenuId(null);
-    if (!window.confirm("Delete this document? This can't be undone.")) return;
+    if (!window.confirm(t("dashboard.deleteConfirm"))) return;
     try {
       await deleteDocument(id);
       setDocuments((docs) => docs.filter((d) => d.id !== id));
@@ -102,7 +103,7 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
 
   async function handleRename(doc) {
     setOpenMenuId(null);
-    const next = window.prompt("Rename document:", doc.display_name);
+    const next = window.prompt(t("dashboard.renamePrompt"), doc.display_name);
     if (next === null) return; // cancelled
     const trimmed = next.trim();
     if (!trimmed || trimmed === doc.display_name) return;
@@ -135,7 +136,13 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
   }, [openMenuId]);
 
   if (viewing) {
-    return <DocumentViewer document={viewing} onBack={() => setViewing(null)} />;
+    return (
+      <DocumentViewer
+        document={viewing}
+        onBack={() => setViewing(null)}
+        onShowHowItWorks={onShowHowItWorks}
+      />
+    );
   }
 
   return (
@@ -143,28 +150,27 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
       <div className="top-row">
         <h1>PlainMed</h1>
         <p className="account">
-          Signed in as {user.email} <button onClick={onSignOut}>Sign out</button>
+          {t("dashboard.signedInAs", { email: user.email })}{" "}
+          <button onClick={onSignOut}>{t("common.signOut")}</button>
         </p>
       </div>
 
       <div className="dash-greet">
         <h2 className="doc-title">
-          {documents && documents.length > 0 ? "Welcome back, " : "Welcome, "}
+          {documents && documents.length > 0 ? t("dashboard.welcomeBack") : t("dashboard.welcome")}
           {firstNameFromEmail(user.email)}.
         </h2>
-        <p className="dash-greet-sub">{greetingSubline(documents)}</p>
+        <p className="dash-greet-sub">{greetingSubline(documents, t)}</p>
       </div>
 
       <p className="disclaimer" role="alert" aria-live="polite">
-        This tool does not provide medical advice. It only helps explain the
-        objective content of a document — always consult a qualified
-        healthcare provider for interpretation and care decisions.
+        {t("common.disclaimer")}
       </p>
 
       <div className="dash-grid">
         <aside className="dash-rail">
-          <h2 className="doc-title dash-rail-title">Add a report</h2>
-          <p className="dash-rail-lead">A lab result, scan report, or doctor's note — as a PDF.</p>
+          <h2 className="doc-title dash-rail-title">{t("dashboard.addReportTitle")}</h2>
+          <p className="dash-rail-lead">{t("dashboard.addReportLead")}</p>
 
           <div
             className={"dash-drop" + (dragOver ? " dash-drop-over" : "")}
@@ -189,12 +195,12 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
               disabled={uploading}
             />
             {uploading ? (
-              <p className="dash-drop-status">Uploading…</p>
+              <p className="dash-drop-status">{t("dashboard.uploading")}</p>
             ) : (
               <>
-                <p className="dash-drop-hint">Drop a PDF here, or</p>
+                <p className="dash-drop-hint">{t("dashboard.dropHint")}</p>
                 <label className="btn btn-primary" htmlFor="file-upload">
-                  Choose a file
+                  {t("dashboard.chooseFile")}
                 </label>
               </>
             )}
@@ -203,80 +209,72 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
           {error && <p className="error-text" role="alert">{error}</p>}
 
           <div className="dash-faq">
-            <h3>Common questions</h3>
+            <h3>{t("dashboard.commonQuestions")}</h3>
 
             <div className="dash-qa">
-              <p className="dash-q">Where do I get the PDF?</p>
+              <p className="dash-q">{t("dashboard.q1")}</p>
               <p className="dash-a">
-                In MyChart or LiveWell, open the result and choose <code>Download</code>, or the
-                printer icon, and save it as a PDF. On a phone, tap Share, then Save to Files.
+                <Rich text={t("dashboard.a1")} />
               </p>
             </div>
 
             <div className="dash-qa">
-              <p className="dash-q">Who can see what I add?</p>
-              <p className="dash-a">
-                Only you. Your name, birthday, and record number are removed before anything is
-                sent to be explained.
-              </p>
+              <p className="dash-q">{t("dashboard.q2")}</p>
+              <p className="dash-a">{t("dashboard.a2")}</p>
             </div>
 
             <div className="dash-qa">
-              <p className="dash-q">How long does it take?</p>
-              <p className="dash-a">About a minute. You can close the page and come back later.</p>
+              <p className="dash-q">{t("dashboard.q3")}</p>
+              <p className="dash-a">{t("dashboard.a3")}</p>
             </div>
 
             <div className="dash-qa">
-              <p className="dash-q">Will it tell me if something is wrong?</p>
-              <p className="dash-a">
-                No. It explains what the words mean. What your results mean for you is a
-                conversation with your doctor.
-              </p>
+              <p className="dash-q">{t("dashboard.q4")}</p>
+              <p className="dash-a">{t("dashboard.a4")}</p>
             </div>
           </div>
 
           <button className="btn-link dash-how-link" onClick={onShowHowItWorks}>
-            How this works, and how your document is kept private →
+            {t("dashboard.howLink")}
           </button>
         </aside>
 
         <section className="dash-pane">
           <div className="dash-pane-head">
-            <h2 className="doc-title">Your reports</h2>
+            <h2 className="doc-title">{t("dashboard.yourReports")}</h2>
             {documents && documents.length > 0 && (
-              <span className="dash-pane-count">
-                {documents.length} report{documents.length === 1 ? "" : "s"} · newest first
-              </span>
+              <span className="dash-pane-count">{t("dashboard.reportsCount", { n: documents.length })}</span>
             )}
           </div>
 
-          {documents === undefined && <p className="loading-state">Loading documents…</p>}
+          {documents === undefined && <p className="loading-state">{t("dashboard.loadingDocuments")}</p>}
           {documents && documents.length === 0 && (
-            <p className="empty-state">No reports yet — add your first one to see how it works.</p>
+            <p className="empty-state">{t("dashboard.emptyState")}</p>
           )}
           {documents && documents.length > 0 && (
             <ul className="dash-doc-list">
               {documents.map((doc) => {
-                const pill = STATUS_PILLS[doc.status] ?? { label: doc.status, className: "pill-processing" };
+                const pill = statusPill(doc.status, t);
                 return (
                   <li className="dash-doc" key={doc.id}>
                     <div className="dash-doc-main">
                       <p className="dash-doc-title">{doc.display_name}</p>
                       <p className="dash-doc-meta">
                         <span className={"pill " + pill.className}>{pill.label}</span>
-                        {" "}Added {new Date(doc.created_at).toLocaleDateString()}
+                        {" "}
+                        {t("dashboard.addedOn", { date: new Date(doc.created_at).toLocaleDateString() })}
                       </p>
                     </div>
                     <div className="dash-doc-acts">
                       {doc.status === "ready" && (
                         <button className="btn btn-primary" onClick={() => setViewing(doc)}>
-                          Read the explanation
+                          {t("dashboard.readExplanation")}
                         </button>
                       )}
                       <div className="dash-more-wrap">
                         <button
                           className="dash-more"
-                          aria-label={`More actions for ${doc.display_name}`}
+                          aria-label={t("dashboard.moreActionsFor", { name: doc.display_name })}
                           onMouseDown={(e) => e.stopPropagation()}
                           onClick={() => setOpenMenuId(openMenuId === doc.id ? null : doc.id)}
                         >
@@ -284,8 +282,8 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
                         </button>
                         {openMenuId === doc.id && (
                           <div className="dash-menu" onMouseDown={(e) => e.stopPropagation()}>
-                            <button onClick={() => handleRename(doc)}>Rename</button>
-                            <button onClick={() => handleDelete(doc.id)}>Delete</button>
+                            <button onClick={() => handleRename(doc)}>{t("dashboard.rename")}</button>
+                            <button onClick={() => handleDelete(doc.id)}>{t("dashboard.delete")}</button>
                           </div>
                         )}
                       </div>

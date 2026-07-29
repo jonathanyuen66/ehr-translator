@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { explainTerm } from "../api";
+import { useLanguage } from "../i18n";
 
 const MAX_LENGTH = 300;
 
@@ -9,6 +10,7 @@ const MAX_LENGTH = 300;
 // a term that's easier to type or copy-paste than to select cleanly in the
 // rendered PDF (or one that isn't in the document's own text at all).
 export default function AskAboutTerm({ documentId, language, onExplained }) {
+  const { t } = useLanguage();
   const [term, setTerm] = useState("");
   const [status, setStatus] = useState("idle"); // idle | loading | error
   const [error, setError] = useState("");
@@ -33,17 +35,17 @@ export default function AskAboutTerm({ documentId, language, onExplained }) {
 
   return (
     <div className="ask-about-term">
-      <p className="viewer-hint">Still have a question about a specific word or phrase?</p>
+      <p className="viewer-hint">{t("askAboutTerm.prompt")}</p>
       <form className="ask-about-term-form" onSubmit={handleSubmit}>
         <input
           type="text"
-          placeholder="Type or paste a term from the document"
+          placeholder={t("askAboutTerm.inputPlaceholder")}
           maxLength={MAX_LENGTH}
           value={term}
           onChange={(e) => setTerm(e.target.value)}
         />
         <button className="btn btn-primary" type="submit" disabled={status === "loading" || !term.trim()}>
-          {status === "loading" ? "Explaining…" : "Explain"}
+          {status === "loading" ? t("common.explaining") : t("common.explain")}
         </button>
       </form>
       {error && <p className="error-text" role="alert">{error}</p>}

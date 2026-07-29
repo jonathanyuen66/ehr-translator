@@ -14,7 +14,7 @@ const MIN_SELECTION_LENGTH = 2;
 // renders illegibly small in a cramped viewport, a ceiling so a huge pane
 // doesn't blow a page up into an oversized canvas.
 const MIN_SCALE = 0.4;
-const MAX_SCALE = 2.5;
+const MAX_SCALE = 3.5;
 const RESIZE_DEBOUNCE_MS = 150;
 
 // Renders a PDF onto canvas (one per page) with an invisible, positioned text

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { explainTerm } from "../api";
+import { useLanguage } from "../i18n";
 
 // Clamps the popover inside the viewport so a selection near an edge
 // doesn't render partly off-screen.
@@ -17,6 +18,7 @@ function clampPosition(rect) {
 // doesn't immediately fire a Gemini call; only actually requests an
 // explanation once clicked.
 export default function ExplainPopover({ documentId, language, selection, onExplained, onDismiss }) {
+  const { t } = useLanguage();
   const [status, setStatus] = useState("idle"); // idle | loading | result | error
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -74,14 +76,16 @@ export default function ExplainPopover({ documentId, language, selection, onExpl
     >
       {status === "idle" && (
         <button className="btn btn-primary explain-popover-btn" onClick={handleExplain}>
-          Explain "{selection.text.length > 40 ? `${selection.text.slice(0, 40)}…` : selection.text}"
+          {t("explainPopover.explainQuoted", {
+            text: selection.text.length > 40 ? `${selection.text.slice(0, 40)}…` : selection.text,
+          })}
         </button>
       )}
-      {status === "loading" && <p className="loading-state explain-popover-loading">Explaining…</p>}
+      {status === "loading" && <p className="loading-state explain-popover-loading">{t("common.explaining")}</p>}
       {status === "error" && (
         <>
           <p className="error-text" role="alert">{error}</p>
-          <button className="btn-link" onClick={handleExplain}>Try again</button>
+          <button className="btn-link" onClick={handleExplain}>{t("common.tryAgain")}</button>
         </>
       )}
       {status === "result" && result && (
@@ -99,10 +103,10 @@ export default function ExplainPopover({ documentId, language, selection, onExpl
               ))}
             </ul>
           ) : (
-            <p className="no-source">No clear supporting source found.</p>
+            <p className="no-source">{t("common.noSourceFound")}</p>
           )}
           <button className="btn-link explain-popover-close" onClick={onDismiss}>
-            Got it
+            {t("common.gotIt")}
           </button>
         </div>
       )}

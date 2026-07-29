@@ -62,6 +62,13 @@ a {
   padding: 2.25rem 1.5rem 5rem;
 }
 
+/* Wider than .shell's default — the document viewer's two panes (and
+   especially the PDF itself) benefit from the extra room, where the home
+   page's prose reads better at the narrower measure. */
+.shell-viewer {
+  max-width: 92rem;
+}
+
 .top-row {
   display: flex;
   align-items: baseline;
@@ -297,10 +304,17 @@ label.btn {
   color: var(--bg);
 }
 
+.global-lang-switch {
+  position: fixed;
+  top: 1rem;
+  right: 1.5rem;
+  z-index: 50;
+}
+
 .viewer-grid {
   margin-top: 1.5rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
   gap: 3rem;
   align-items: start;
 }
@@ -413,8 +427,8 @@ label.btn {
 @media (min-width: 861px) {
   .document-pane {
     position: sticky;
-    top: 1.5rem;
-    height: calc(100vh - 3rem);
+    top: 1rem;
+    height: calc(100vh - 2rem);
   }
 }
 
@@ -438,6 +452,38 @@ label.btn {
 .pane-actions {
   flex: none;
   margin: 0 0 0.75rem;
+}
+
+.viewer-original-note {
+  flex: none;
+  margin: -0.4rem 0 0.75rem;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.viewer-why-details {
+  flex: none;
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+}
+
+.viewer-why-details summary {
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.viewer-why-details[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+.viewer-why-details p {
+  margin: 0;
+  color: var(--ink);
+  font-style: normal;
+  line-height: 1.6;
 }
 
 .pdf-pages {

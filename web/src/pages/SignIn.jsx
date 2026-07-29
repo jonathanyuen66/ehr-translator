@@ -2,8 +2,12 @@ import { useState } from "react";
 import { requestSignInLink } from "../api";
 import { HowItWorksContent } from "./HowItWorks";
 import DemoPreview from "./DemoPreview";
+import { Rich, useLanguage } from "../i18n";
+
+const AUTHOR_EMAIL = "jonathanyuen66@gmail.com";
 
 export default function SignIn({ sessionExpired }) {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -24,14 +28,18 @@ export default function SignIn({ sessionExpired }) {
   if (status === "sent") {
     return (
       <main className="shell">
-        <h1 className="doc-title">Check your email</h1>
+        <h1 className="doc-title">{t("signIn.checkEmailTitle")}</h1>
         <p className="disclaimer">
-          We sent a sign-in link to <strong>{email}</strong>. Open it on this
-          device to finish signing in.
+          <Rich text={t("signIn.checkEmailBody", { email })} />
         </p>
       </main>
     );
   }
+
+  // Split around the literal address (rather than baking a translated
+  // template around a <strong>/<a> pair) so the footer's surrounding wording
+  // can reorder freely per language while the mailto link stays a real link.
+  const [footerBefore, footerAfter] = t("signIn.footer", { email: AUTHOR_EMAIL }).split(AUTHOR_EMAIL);
 
   return (
     <main className="shell">
@@ -41,32 +49,27 @@ export default function SignIn({ sessionExpired }) {
 
       {sessionExpired && (
         <p className="error-text" role="alert">
-          You were signed out — this can happen if you signed out from another tab or device
-          (accounts share one sign-in across all of them). Please sign in again.
+          {t("signIn.sessionExpired")}
         </p>
       )}
 
-      <p className="hero-eyebrow">Scan reports &amp; doctor's notes</p>
-      <h2 className="doc-title">Written for a doctor. Explained for you.</h2>
+      <p className="hero-eyebrow">{t("signIn.heroEyebrow")}</p>
+      <h2 className="doc-title">{t("signIn.heroTitle")}</h2>
       <p className="hero-sub">
-        Upload a report and read it beside a plain-language explanation of every term it
-        assumes you already know — in <strong>English, Spanish, or Traditional Chinese</strong>,
-        with a link to the published research behind each one.
+        <Rich text={t("signIn.heroSub")} />
       </p>
 
-      <p className="disclaimer">
-        This app is invite-only. Enter your invited email to get a sign-in link.
-      </p>
+      <p className="disclaimer">{t("signIn.inviteOnlyNotice")}</p>
       <form className="signin-form" onSubmit={handleSubmit}>
         <input
           type="email"
           required
-          placeholder="you@example.com"
+          placeholder={t("signIn.emailPlaceholder")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
         <button className="btn btn-primary" type="submit" disabled={status === "sending"}>
-          {status === "sending" ? "Sending…" : "Send me a sign-in link"}
+          {status === "sending" ? t("signIn.sending") : t("signIn.sendLink")}
         </button>
       </form>
       {error && <p className="error-text" role="alert">{error}</p>}
@@ -77,9 +80,9 @@ export default function SignIn({ sessionExpired }) {
       <HowItWorksContent />
 
       <footer className="site-footer">
-        Created by Jonathan Yuen (
-        <a href="mailto:jonathanyuen66@gmail.com">jonathanyuen66@gmail.com</a>
-        ) — questions welcome.
+        {footerBefore}
+        <a href={`mailto:${AUTHOR_EMAIL}`}>{AUTHOR_EMAIL}</a>
+        {footerAfter}
       </footer>
     </main>
   );
