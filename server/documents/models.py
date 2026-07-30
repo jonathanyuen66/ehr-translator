@@ -28,6 +28,13 @@ class Document(models.Model):
     # later only needs one more Gemini call, not a full re-run.
     findings = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # The one shared, synthetic document behind the guided product tour —
+    # owned by a hidden system account, never a real user's upload. Flagged
+    # rather than identified by a hardcoded id (which would vary per
+    # environment) so DocumentViewSet.get_queryset can grant every
+    # authenticated user read/explain access to this one row without
+    # widening access to anyone's real documents.
+    is_tour_sample = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
@@ -35,7 +42,12 @@ class Document(models.Model):
                 fields=["owner", "content_hash"],
                 condition=~models.Q(content_hash=""),
                 name="unique_owner_content_hash",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["is_tour_sample"],
+                condition=models.Q(is_tour_sample=True),
+                name="unique_tour_sample",
+            ),
         ]
 
     def __str__(self):

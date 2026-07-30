@@ -64,6 +64,14 @@ export function listDocuments() {
   return request("/api/documents/");
 }
 
+// The one shared, synthetic document behind the guided product tour — real
+// document, real annotations, viewable through the exact same endpoints
+// (file/annotations/explain) any real upload uses. See documents/views.py's
+// DocumentViewSet.tour.
+export function fetchTourDocument() {
+  return request("/api/documents/tour/");
+}
+
 export function deleteDocument(id) {
   return request(`/api/documents/${id}/`, { method: "DELETE" });
 }

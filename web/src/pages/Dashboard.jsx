@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteDocument, listDocuments, renameDocument, uploadDocument } from "../api";
+import { deleteDocument, fetchTourDocument, listDocuments, renameDocument, uploadDocument } from "../api";
 import DocumentViewer from "./DocumentViewer";
+import TourCoach from "../tour/TourCoach";
 import { Rich, useLanguage } from "../i18n";
 
 // There's no separate "name" field on the account (accounts/models.py —
@@ -49,6 +50,9 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
   const [viewing, setViewing] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [tourActive, setTourActive] = useState(false);
+  const [tourDoc, setTourDoc] = useState(null);
+  const [tourError, setTourError] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -135,13 +139,41 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
     };
   }, [openMenuId]);
 
-  if (viewing) {
+  async function startTour() {
+    setTourError("");
+    try {
+      const doc = await fetchTourDocument();
+      setTourDoc(doc);
+      setTourActive(true);
+    } catch (err) {
+      setTourError(err.message);
+    }
+  }
+
+  function endTour() {
+    setTourActive(false);
+    setTourDoc(null);
+  }
+
+  // The shared sample's display_name comes from the seed command (English
+  // only, since it's stored once in the DB) — recomputed on every render
+  // (not baked in once at fetch time) so its title in the viewer keeps
+  // following the site's language even if it's changed mid-tour, same as
+  // everything else the tour points at.
+  const activeDocument = tourActive
+    ? tourDoc && { ...tourDoc, display_name: t("tour.sampleDocumentTitle") }
+    : viewing;
+
+  if (activeDocument) {
     return (
-      <DocumentViewer
-        document={viewing}
-        onBack={() => setViewing(null)}
-        onShowHowItWorks={onShowHowItWorks}
-      />
+      <>
+        <DocumentViewer
+          document={activeDocument}
+          onBack={tourActive ? endTour : () => setViewing(null)}
+          onShowHowItWorks={onShowHowItWorks}
+        />
+        {tourActive && <TourCoach onFinish={endTour} />}
+      </>
     );
   }
 
@@ -237,6 +269,10 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
           <button className="btn-link dash-how-link" onClick={onShowHowItWorks}>
             {t("dashboard.howLink")}
           </button>
+          <button className="btn-link dash-how-link" onClick={startTour}>
+            {t("tour.replayLink")}
+          </button>
+          {tourError && <p className="error-text" role="alert">{tourError}</p>}
         </aside>
 
         <section className="dash-pane">
@@ -249,7 +285,12 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
 
           {documents === undefined && <p className="loading-state">{t("dashboard.loadingDocuments")}</p>}
           {documents && documents.length === 0 && (
-            <p className="empty-state">{t("dashboard.emptyState")}</p>
+            <div className="empty-state-block">
+              <p className="empty-state">{t("dashboard.emptyState")}</p>
+              <button className="btn btn-primary" onClick={startTour}>
+                {t("tour.ctaButton")}
+              </button>
+            </div>
           )}
           {documents && documents.length > 0 && (
             <ul className="dash-doc-list">

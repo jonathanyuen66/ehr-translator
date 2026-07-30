@@ -3,6 +3,7 @@ import logging
 from django.http import FileResponse
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 
 from . import gemini
@@ -31,8 +32,16 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Scoping every query to the requesting user is what actually
-        # enforces per-user isolation — the client never gets a say.
-        return Document.objects.filter(owner=self.request.user).order_by("-created_at")
+        # enforces per-user isolation — the client never gets a say. The
+        # `list` action stays exactly this strict (the shared tour sample
+        # must never show up in anyone's real "Your reports"); every other
+        # action additionally allows the one flagged tour-sample document
+        # regardless of owner, so any authenticated user can view/explain
+        # the same shared, synthetic document through these same endpoints.
+        owned = Document.objects.filter(owner=self.request.user)
+        if self.action == "list":
+            return owned.order_by("-created_at")
+        return (owned | Document.objects.filter(is_tour_sample=True)).order_by("-created_at")
 
     def perform_create(self, serializer):
         file_obj = self.request.FILES.get("file")
@@ -71,7 +80,19 @@ class DocumentViewSet(viewsets.ModelViewSet):
             except Exception:
                 logger.exception("Annotation generation failed for document %s", document.id)
 
+    def perform_update(self, serializer):
+        # The shared tour sample is reachable through these same endpoints
+        # by any authenticated user (see get_queryset above) so its findings
+        # stay realistic — but only rename/delete need blocking here, since
+        # those are the only actions that would mutate or remove it for
+        # everyone else too.
+        if serializer.instance.is_tour_sample:
+            raise PermissionDenied("The sample document can't be edited.")
+        serializer.save()
+
     def perform_destroy(self, instance):
+        if instance.is_tour_sample:
+            raise PermissionDenied("The sample document can't be deleted.")
         # Logged before, not after: SET_NULL on DocumentAccessLog.document
         # needs the row it's about to be nulled-out on to exist and be
         # deleted afterward, and instance.display_name has to still be
@@ -79,6 +100,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
         DocumentAccessLog.record(self.request.user, instance, DocumentAccessLog.Action.DELETE)
         instance.file.delete(save=False)
         instance.delete()
+
+    @action(detail=False, methods=["get"])
+    def tour(self, request):
+        """Lets the frontend discover the shared tour-sample document's id
+        without hardcoding a PK that varies per environment/seed run — the
+        guided tour then drives the exact same detail endpoints below
+        (file/annotations/explain) any real document uses.
+        """
+        document = Document.objects.filter(is_tour_sample=True).first()
+        if document is None:
+            raise NotFound("The tour sample hasn't been seeded yet.")
+        return Response(DocumentSerializer(document, context={"request": request}).data)
 
     @action(detail=True, methods=["get"])
     def file(self, request, pk=None):

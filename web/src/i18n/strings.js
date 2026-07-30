@@ -265,6 +265,46 @@ export const translations = {
           "**Why two layers?** No single method catches everything. A generalist identifier scanner (Layer 1) can miss a name embedded in unusual medical phrasing that Layer 2's medical-specific patterns are built to catch — and Layer 2, built for clinical documents specifically, doesn't know to look for things like credit card numbers the way a generalist scanner does. Running both means one layer's blind spot is usually the other's strength.",
       },
     },
+    tour: {
+      ctaButton: "Take the 2-minute tour",
+      replayLink: "Replay tour",
+      sampleDocumentTitle: "Sample report (guided tour)",
+      stepCounter: ({ step, total }) => `Step ${step} of ${total}`,
+      back: "Back",
+      next: "Next",
+      skip: "Skip tour",
+      done: "Done",
+      steps: [
+        {
+          title: "Let's take a real look around",
+          body: "This is a real, synthetic sample report — not a mockup. Everything you're about to try (highlighting, explanations, language switching) is the actual product, running for real.",
+        },
+        {
+          title: "Hover to see it explained",
+          body: "Hover or tap a highlighted phrase in the document, or one of the explanations on the left — the other one lights up. That's how a term and its plain-language explanation stay connected.",
+        },
+        {
+          title: "Explanations, side by side",
+          body: "Every finding gets a plain-language explanation, backed by real, retrieved research you can open and read yourself.",
+        },
+        {
+          title: "Select any phrase to ask about it",
+          body: 'Try it now: select the phrase "adrenal glands" in the document, then click "Explain" — this asks the real AI, on the spot, just like it would for your own report.',
+        },
+        {
+          title: "Read in your language",
+          body: "This switch controls the whole site, including this very report — try English, Spanish, or Traditional Chinese.",
+        },
+        {
+          title: "Or just type it",
+          body: "Don't see the word you're curious about? Type or paste it here instead of selecting it in the document.",
+        },
+        {
+          title: "Ready for your own report?",
+          body: "Click \"← Back to documents\" whenever you're ready, then add a real report of your own from the dashboard.",
+        },
+      ],
+    },
   },
 
   es: {
@@ -533,6 +573,46 @@ export const translations = {
           "**¿Por qué dos capas?** Ningún método por sí solo lo detecta todo. Un escáner genérico de identificadores (Capa 1) puede pasar por alto un nombre incrustado en una redacción médica poco común que los patrones específicos de la Capa 2 sí detectan — y la Capa 2, creada específicamente para documentos clínicos, no sabe buscar cosas como números de tarjetas de crédito de la forma en que lo hace un escáner genérico. Usar ambas significa que el punto ciego de una capa suele ser la fortaleza de la otra.",
       },
     },
+    tour: {
+      ctaButton: "Hacer el recorrido de 2 minutos",
+      replayLink: "Repetir el recorrido",
+      sampleDocumentTitle: "Informe de muestra (recorrido guiado)",
+      stepCounter: ({ step, total }) => `Paso ${step} de ${total}`,
+      back: "Atrás",
+      next: "Siguiente",
+      skip: "Omitir recorrido",
+      done: "Listo",
+      steps: [
+        {
+          title: "Echemos un vistazo real",
+          body: "Este es un informe de muestra real y sintético — no una simulación. Todo lo que estás a punto de probar (resaltado, explicaciones, cambio de idioma) es el producto real, funcionando de verdad.",
+        },
+        {
+          title: "Pasa el cursor para ver la explicación",
+          body: "Pasa el cursor o toca una frase resaltada en el documento, o una de las explicaciones a la izquierda — la otra se ilumina. Así es como un término y su explicación en lenguaje sencillo quedan conectados.",
+        },
+        {
+          title: "Explicaciones, una junto a otra",
+          body: "Cada hallazgo recibe una explicación en lenguaje sencillo, respaldada por investigación real y recuperada que puedes abrir y leer tú mismo.",
+        },
+        {
+          title: "Selecciona cualquier frase para preguntar por ella",
+          body: 'Pruébalo ahora: selecciona la frase "adrenal glands" en el documento y luego haz clic en "Explicar" — esto le pregunta a la IA real, en el momento, igual que lo haría con tu propio informe.',
+        },
+        {
+          title: "Léelo en tu idioma",
+          body: "Este control gobierna todo el sitio, incluido este mismo informe — prueba inglés, español o chino tradicional.",
+        },
+        {
+          title: "O simplemente escríbelo",
+          body: "¿No ves la palabra que te genera curiosidad? Escríbela o pégala aquí en lugar de seleccionarla en el documento.",
+        },
+        {
+          title: "¿Listo para tu propio informe?",
+          body: 'Haz clic en "← Volver a los documentos" cuando quieras, y luego agrega un informe real tuyo desde el panel principal.',
+        },
+      ],
+    },
   },
 
   "zh-Hant": {
@@ -787,6 +867,46 @@ export const translations = {
         whyTwoLayers:
           "**為什麼要有兩層？** 沒有任何單一方法能涵蓋所有情況。通用型識別資訊掃描器（第一層）可能會漏掉隱藏在不常見醫療措辭中的姓名，而第二層針對醫療情境設計的模式正是為此而生——反過來，專為臨床文件打造的第二層，並不像通用掃描器那樣懂得留意信用卡號之類的資訊。同時執行兩層，代表其中一層的盲點，通常正是另一層的強項。",
       },
+    },
+    tour: {
+      ctaButton: "開始兩分鐘導覽",
+      replayLink: "重新導覽",
+      sampleDocumentTitle: "範例報告（導覽用）",
+      stepCounter: ({ step, total }) => `第 ${step} 步，共 ${total} 步`,
+      back: "上一步",
+      next: "下一步",
+      skip: "跳過導覽",
+      done: "完成",
+      steps: [
+        {
+          title: "來實際看看吧",
+          body: "這是一份真實的合成範例報告——不是示意圖。你即將嘗試的每一項功能（反白標註、說明、切換語言）都是真正在運作的產品本身。",
+        },
+        {
+          title: "將滑鼠移到上面看看說明",
+          body: "將滑鼠移到或點選文件中反白的詞句，或是左側的其中一項說明——另一邊就會跟著亮起。這就是術語與其白話說明彼此對應的方式。",
+        },
+        {
+          title: "說明就在旁邊",
+          body: "每項發現都附有白話解釋，並有你可以自行開啟閱讀的真實檢索研究作為依據。",
+        },
+        {
+          title: "選取任何詞句來詢問",
+          body: "現在試試看：在文件中選取「adrenal glands」這個詞組，然後點選「解釋」——這會即時詢問真正的 AI，就像處理你自己的報告時一樣。",
+        },
+        {
+          title: "用你的語言閱讀",
+          body: "這個切換鍵掌控整個網站，包括這份報告本身——試試英文、西班牙文或繁體中文。",
+        },
+        {
+          title: "或者直接輸入",
+          body: "沒看到你好奇的詞嗎？可以直接在這裡輸入或貼上，不必在文件中選取。",
+        },
+        {
+          title: "準備好上傳你自己的報告了嗎？",
+          body: "準備好後，點選「← 返回文件列表」，接著就可以從主頁新增一份屬於你自己的真實報告。",
+        },
+      ],
     },
   },
 };
