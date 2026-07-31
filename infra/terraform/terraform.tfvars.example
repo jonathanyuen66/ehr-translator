@@ -41,3 +41,12 @@ owner_email = ""
 # worse deliverability until this is set).
 mailgun_dkim_selector = "smtp"
 mailgun_dkim_value    = ""
+
+# From Cloudflare, once you've added ROOT_DOMAIN as a site there (Free plan)
+# — Zone ID from the site's Overview page, API token from My Profile -> API
+# Tokens (scoped to Zone:DNS:Edit, Zone:Zone Settings:Edit,
+# Zone:Firewall Services:Edit for this one zone, not the Global API Key).
+# Leave both blank to skip cloudflare.tf entirely and keep root_domain on
+# plain Google Cloud DNS with no WAF, same as before these existed.
+cloudflare_api_token = ""
+cloudflare_zone_id   = ""

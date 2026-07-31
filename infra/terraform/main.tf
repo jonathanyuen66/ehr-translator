@@ -6,6 +6,7 @@ terraform {
     google-beta = { source = "hashicorp/google-beta", version = "~> 6.0" }
     random      = { source = "hashicorp/random", version = "~> 3.6" }
     time        = { source = "hashicorp/time", version = "~> 0.13" }
+    cloudflare  = { source = "cloudflare/cloudflare", version = "~> 4.0" }
   }
 
   # Partial config: the state bucket itself must exist before this can be
@@ -28,6 +29,13 @@ provider "google" {
 provider "google-beta" {
   project = var.project_id
   region  = var.region
+}
+
+# Harmless to configure even with an empty token (cloudflare_api_token
+# defaults to "") — every resource in cloudflare.tf is gated on it being
+# set, so no API call ever actually happens until it is.
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
 
 # Used to build Cloud Run's deterministic default URL (run.tf) without a

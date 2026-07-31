@@ -19,8 +19,13 @@ output "api_custom_domain_url" {
 }
 
 output "dns_name_servers" {
-  description = "Google's assigned name servers for the root_domain managed zone — set these as root_domain's nameservers at your registrar. Nothing above (app/api CNAMEs, Mailgun MX/TXT/DKIM records) resolves until that's done. Null until root_domain is set."
+  description = "Google's assigned name servers for the root_domain managed zone — superseded by cloudflare_name_servers below once cloudflare_zone_id is set; kept for reference/rollback (this is what the registrar's NS records point at today, before the Cloudflare cutover)."
   value       = var.root_domain != "" ? google_dns_managed_zone.primary[0].name_servers : null
+}
+
+output "cloudflare_name_servers" {
+  description = "Cloudflare's assigned name servers for root_domain's zone — set these at your registrar to make Cloudflare (not Google Cloud DNS) authoritative, which is what actually makes the proxied app/api records and WAF rules in cloudflare.tf take effect. Null until cloudflare_zone_id is set. Verify cloudflare.tf resolves correctly *before* changing this at the registrar — see the rollout plan."
+  value       = local.cloudflare_enabled ? data.cloudflare_zone.this[0].name_servers : null
 }
 
 output "artifact_registry_repo" {

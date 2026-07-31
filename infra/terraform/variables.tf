@@ -137,3 +137,16 @@ variable "mailgun_dkim_value" {
   default     = ""
   sensitive   = true
 }
+
+variable "cloudflare_api_token" {
+  description = "Scoped API token (Zone:DNS:Edit, Zone:Zone Settings:Edit, Zone:Firewall Services:Edit, restricted to the one zone) from Cloudflare -> My Profile -> API Tokens — not the account-wide Global API Key. Leave blank to skip all cloudflare.tf resources entirely (root_domain still works on plain Google Cloud DNS with no WAF, same as before this variable existed)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_zone_id" {
+  description = "Zone ID for root_domain's site in Cloudflare, shown on the zone's Overview page. Required alongside cloudflare_api_token for any cloudflare.tf resource to apply — the site has to already exist in your Cloudflare account (Cloudflare's \"Add a domain\" flow) before this can be set, same one-time-manual-step category as the Mailgun/Search Console prerequisites above."
+  type        = string
+  default     = ""
+}

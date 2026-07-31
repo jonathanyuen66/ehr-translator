@@ -224,9 +224,9 @@ export const translations = {
             detail: "A logged record of exactly when and how each document was accessed.",
           },
           {
-            status: "progress",
+            status: "live",
             title: "A web application firewall",
-            detail: "Automated blocking of common attack patterns before they ever reach the app.",
+            detail: "A firewall filters out malicious traffic and throttles abuse before it ever reaches the app.",
           },
           {
             status: "progress",
@@ -532,9 +532,9 @@ export const translations = {
             detail: "Un registro de exactamente cuándo y cómo se accedió a cada documento.",
           },
           {
-            status: "progress",
+            status: "live",
             title: "Un firewall de aplicaciones web",
-            detail: "Bloqueo automático de patrones de ataque comunes antes de que lleguen a la aplicación.",
+            detail: "Un firewall filtra el tráfico malicioso y limita los abusos antes de que lleguen a la aplicación.",
           },
           {
             status: "progress",
@@ -827,9 +827,9 @@ export const translations = {
             detail: "確實記錄每份文件何時、以何種方式被存取。",
           },
           {
-            status: "progress",
+            status: "live",
             title: "網頁應用程式防火牆",
-            detail: "在常見攻擊模式抵達應用程式之前自動加以攔截。",
+            detail: "防火牆會在惡意流量抵達應用程式之前先行過濾，並對濫用行為進行節流限制。",
           },
           {
             status: "progress",
