@@ -366,9 +366,11 @@ Puts a free Cloudflare proxy in front of the custom domain from the previous sec
 - `web/` — React (Vite) frontend
 - `infra/terraform/` — GCP deployment infra (Cloud Run, Cloud SQL, VPC, DNS, IAM) — see [Deploying to GCP](#deploying-to-gcp)
 
-## A privacy note on the Gemini free tier
+## Gemini: production vs. local dev
 
-The annotation pipeline uses Gemini's free tier, whose terms permit Google to use free-tier inputs/outputs to improve their products. De-identifying the text before it's sent (see above) reduces exposure but is a mitigation, not a guarantee — it's a heuristic pass over labeled fields (name, DOB, MRN, address) and won't catch every way an identifier could appear in a real document. Worth knowing before uploading a real family member's report.
+Production runs on [Vertex AI](https://cloud.google.com/vertex-ai) (`gemini-2.5-flash-lite`), not the consumer Gemini API — `infra/terraform/run.tf` hardcodes `VERTEX_PROJECT_ID` for the deployed Cloud Run service, and `documents/gemini.py`'s `_get_client()` uses Vertex whenever that's set. Vertex's enterprise terms mean Google doesn't use production inputs/outputs to train its models, and it's the tier the eventual BAA (below) would actually cover.
+
+Locally, without `VERTEX_PROJECT_ID` set (the default for a fresh clone — see [Vertex AI setup](#vertex-ai-setup)), the app falls back to the plain `GEMINI_API_KEY` client on the *consumer* free tier instead, whose terms do permit Google to use inputs/outputs to improve their products. De-identifying the text before it's sent (see above) reduces exposure but is a mitigation, not a guarantee — it's a heuristic pass over labeled fields (name, DOB, MRN, address) and won't catch every way an identifier could appear in a real document. Worth knowing if you're testing against a real family member's report locally, rather than against the deployed app.
 
 ## On HIPAA / BAA status
 
