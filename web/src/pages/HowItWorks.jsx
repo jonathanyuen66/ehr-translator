@@ -6,12 +6,12 @@ import { Rich, useLanguage } from "../i18n";
 // in English regardless of site language — like DemoPreview's sample
 // document, this represents what a real doctor's note looks like, and a
 // real note stays in whatever language it was originally written in.
-const SAMPLE_BEFORE = `Patient Name: Maria Garcia
-Date of Birth: 08/22/1975
+const SAMPLE_BEFORE = `Patient Name: Jane Doe
+Date of Birth: 01/01/1900
 MRN: 4471002
-Address: 142 Willow Lane, Springfield
+Address: 123 Main Street, Springfield, IL 62701
 
-CLINICAL HISTORY: Patient Maria Garcia presents with a persistent cough.
+CLINICAL HISTORY: Patient Jane Doe presents with a persistent cough.
 
 FINDINGS: A 2.1 cm nodule is noted in the right lower lobe, concerning for malignancy.`;
 
