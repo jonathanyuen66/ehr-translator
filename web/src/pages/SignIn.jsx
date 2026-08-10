@@ -61,7 +61,11 @@ export default function SignIn({ sessionExpired }) {
 
       <p className="disclaimer">{t("signIn.inviteOnlyNotice")}</p>
       <form className="signin-form" onSubmit={handleSubmit}>
+        <label htmlFor="signin-email" className="visually-hidden">
+          {t("signIn.emailLabel")}
+        </label>
         <input
+          id="signin-email"
           type="email"
           required
           placeholder={t("signIn.emailPlaceholder")}
@@ -77,7 +81,7 @@ export default function SignIn({ sessionExpired }) {
       <DemoPreview />
 
       <hr className="section-divider" />
-      <HowItWorksContent />
+      <HowItWorksContent headingLevel="h2" />
 
       <footer className="site-footer">
         {footerBefore}

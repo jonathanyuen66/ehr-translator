@@ -195,9 +195,9 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
         <p className="dash-greet-sub">{greetingSubline(documents, t)}</p>
       </div>
 
-      <p className="disclaimer" role="alert" aria-live="polite">
-        {t("common.disclaimer")}
-      </p>
+      {/* Static from mount, not a dynamic alert — see DocumentViewer.jsx's
+          matching disclaimer for why role="alert" doesn't belong here. */}
+      <p className="disclaimer">{t("common.disclaimer")}</p>
 
       <div className="dash-grid">
         <aside className="dash-rail">
@@ -206,6 +206,7 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
 
           <div
             className={"dash-drop" + (dragOver ? " dash-drop-over" : "")}
+            aria-live="polite"
             onDragEnter={(e) => {
               e.preventDefault();
               setDragOver(true);

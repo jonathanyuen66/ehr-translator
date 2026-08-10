@@ -43,13 +43,19 @@ function renderRedacted(text) {
 // signed-out home page) without also inheriting the "← Back" navigation
 // that only makes sense when this is reached as its own separate screen
 // (Dashboard's own "How this works" link, still a click-through there).
-export function HowItWorksContent() {
+export function HowItWorksContent({ headingLevel = "h1" }) {
   const { t } = useLanguage();
   const roadmap = t("howItWorks.roadmap.items");
+  // The sign-in page already has its own <h1> ("PlainMed") and embeds this
+  // content inline below it — a second <h1> there would give screen reader
+  // users navigating by heading two competing "top level" headings on what's
+  // supposed to be one page. The standalone /how-it-works route (below)
+  // doesn't have that conflict, so it keeps the default h1.
+  const TitleTag = headingLevel;
 
   return (
     <>
-      <h1 className="doc-title">{t("howItWorks.pageTitle")}</h1>
+      <TitleTag className="doc-title">{t("howItWorks.pageTitle")}</TitleTag>
       <p className="disclaimer">{t("common.disclaimer")}</p>
 
       <section className="hiw-section" id="pipeline">

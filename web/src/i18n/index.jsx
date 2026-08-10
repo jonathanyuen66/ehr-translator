@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { translations } from "./strings";
 
 export const LANGUAGES = [
@@ -43,6 +43,15 @@ function lookup(language, path) {
 
 export function LanguageProvider({ children }) {
   const [language, setLanguageState] = useState(readStoredLanguage);
+
+  // Screen readers use this to pick pronunciation rules — without it, a
+  // reader switched to Spanish or Traditional Chinese would still be
+  // spoken with English phonetics. "en"/"es"/"zh-Hant" are already valid
+  // BCP-47 tags, so no translation needed between our language codes and
+  // this attribute.
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   function setLanguage(code) {
     setLanguageState(code);

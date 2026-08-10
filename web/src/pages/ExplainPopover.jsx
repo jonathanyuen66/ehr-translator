@@ -73,6 +73,7 @@ export default function ExplainPopover({ documentId, language, selection, onExpl
       className="explain-popover"
       style={{ top, left, width: POPOVER_WIDTH }}
       onMouseDown={(e) => e.stopPropagation()}
+      aria-live="polite"
     >
       {status === "idle" && (
         <button className="btn btn-primary explain-popover-btn" onClick={handleExplain}>

@@ -31,6 +31,7 @@ export const translations = {
       heroSub:
         "Upload a report and read it beside a plain-language explanation of every term it assumes you already know — in **English, Spanish, or Traditional Chinese**, with a link to the published research behind each one.",
       inviteOnlyNotice: "This app is invite-only. Enter your invited email to get a sign-in link.",
+      emailLabel: "Email address",
       emailPlaceholder: "you@example.com",
       sendLink: "Send me a sign-in link",
       sending: "Sending…",
@@ -99,6 +100,7 @@ export const translations = {
     },
     askAboutTerm: {
       prompt: "Still have a question about a specific word or phrase?",
+      inputLabel: "Term to explain",
       inputPlaceholder: "Type or paste a term from the document",
     },
     explainPopover: {
@@ -333,6 +335,7 @@ export const translations = {
       heroSub:
         "Sube un informe y léelo junto a una explicación en lenguaje sencillo de cada término que se supone que ya conoces — en **inglés, español o chino tradicional**, con un enlace a la investigación publicada detrás de cada uno.",
       inviteOnlyNotice: "Esta aplicación es solo por invitación. Ingresa tu correo invitado para recibir un enlace de acceso.",
+      emailLabel: "Correo electrónico",
       emailPlaceholder: "tucorreo@ejemplo.com",
       sendLink: "Enviarme un enlace de acceso",
       sending: "Enviando…",
@@ -407,6 +410,7 @@ export const translations = {
     },
     askAboutTerm: {
       prompt: "¿Aún tienes una pregunta sobre una palabra o frase en particular?",
+      inputLabel: "Término para explicar",
       inputPlaceholder: "Escribe o pega un término del documento",
     },
     explainPopover: {
@@ -640,6 +644,7 @@ export const translations = {
       heroSub:
         "上傳報告，即可在旁邊看到報告中每個術語的白話解釋——支援**英文、西班牙文或繁體中文**，並附上每項解釋背後已發表研究的連結。",
       inviteOnlyNotice: "此應用程式僅限受邀使用。請輸入受邀電子郵件以取得登入連結。",
+      emailLabel: "電子郵件地址",
       emailPlaceholder: "you@example.com",
       sendLink: "傳送登入連結給我",
       sending: "傳送中…",
@@ -704,6 +709,7 @@ export const translations = {
     },
     askAboutTerm: {
       prompt: "對某個字詞或片語還有疑問嗎？",
+      inputLabel: "要解釋的詞語",
       inputPlaceholder: "輸入或貼上文件中的術語",
     },
     explainPopover: {

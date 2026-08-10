@@ -105,6 +105,7 @@ export default function TourCoach({ onFinish }) {
       />
       <div
         className="tour-callout"
+        aria-live="polite"
         style={
           pos
             ? { top: pos.top, left: pos.left, width: CALLOUT_WIDTH }

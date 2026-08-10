@@ -37,7 +37,11 @@ export default function AskAboutTerm({ documentId, language, onExplained }) {
     <div className="ask-about-term">
       <p className="viewer-hint">{t("askAboutTerm.prompt")}</p>
       <form className="ask-about-term-form" onSubmit={handleSubmit}>
+        <label htmlFor="ask-about-term-input" className="visually-hidden">
+          {t("askAboutTerm.inputLabel")}
+        </label>
         <input
+          id="ask-about-term-input"
           type="text"
           placeholder={t("askAboutTerm.inputPlaceholder")}
           maxLength={MAX_LENGTH}
