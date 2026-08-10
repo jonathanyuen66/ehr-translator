@@ -90,6 +90,11 @@ export const translations = {
       whyBody:
         "PlainMed never edits or hides anything in the document you see — it's private to your account, so there's no reason to hide it from you. Before the AI ever reads your report, a separate, temporary copy is made with your name, birthdate, and other identifying details blacked out, and only that stripped copy is sent to the AI. The file on this screen was never touched.",
       whyLink: "See the full explanation of how this works →",
+      pageIndicator: "Page {current} of {total}",
+      previousPage: "Previous page",
+      nextPage: "Next page",
+      hideAnnotations: "Hide annotations",
+      showAnnotations: "Show annotations",
     },
     demoPreview: {
       ariaLabel: "Sample of how a document is explained",
@@ -400,6 +405,11 @@ export const translations = {
       whyBody:
         "PlainMed nunca edita ni oculta nada en el documento que ves — es privado para tu cuenta, así que no hay razón para ocultártelo. Antes de que la IA lea tu informe, se crea una copia aparte y temporal con tu nombre, fecha de nacimiento y otros datos identificativos tachados, y solo esa copia reducida se envía a la IA. El archivo que ves en esta pantalla nunca se modificó.",
       whyLink: "Ver la explicación completa de cómo funciona esto →",
+      pageIndicator: "Página {current} de {total}",
+      previousPage: "Página anterior",
+      nextPage: "Página siguiente",
+      hideAnnotations: "Ocultar anotaciones",
+      showAnnotations: "Mostrar anotaciones",
     },
     demoPreview: {
       ariaLabel: "Ejemplo de cómo se explica un documento",
@@ -700,6 +710,11 @@ export const translations = {
       whyBody:
         "PlainMed 從不會編輯或隱藏你在這裡看到的文件內容——這是你帳號專屬的私人文件，沒有理由要對你隱藏。在 AI 讀取你的報告之前，系統會另外建立一份暫時的副本，將姓名、出生日期等識別資訊塗黑，只有這份精簡副本會送交 AI。你在這個畫面上看到的檔案，從未被更動過。",
       whyLink: "查看完整運作說明 →",
+      pageIndicator: "第 {current} 頁，共 {total} 頁",
+      previousPage: "上一頁",
+      nextPage: "下一頁",
+      hideAnnotations: "隱藏說明",
+      showAnnotations: "顯示說明",
     },
     demoPreview: {
       ariaLabel: "文件說明方式範例",

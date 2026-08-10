@@ -62,11 +62,11 @@ a {
   padding: 2.25rem 1.5rem 5rem;
 }
 
-/* Wider than .shell's default — the document viewer's two panes (and
-   especially the PDF itself) benefit from the extra room, where the home
-   page's prose reads better at the narrower measure. */
+/* No cap, unlike .shell's default — the document is the primary reading
+   surface now and should fill whatever width the viewport gives it; the
+   home page's prose still reads better at the narrower measure. */
 .shell-viewer {
-  max-width: 92rem;
+  max-width: none;
 }
 
 .top-row {
@@ -316,11 +316,15 @@ label.btn {
   z-index: 50;
 }
 
+/* Document pane first (primary reading experience, fills the remaining
+   space) with a narrow, fixed-width annotations sidebar second — a flip
+   from the original even-ish split now that the document is the point and
+   annotations are reference material alongside it. */
 .viewer-grid {
   margin-top: 1.5rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
-  gap: 3rem;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 2rem;
   align-items: start;
 }
 
@@ -329,6 +333,13 @@ label.btn {
     grid-template-columns: 1fr;
     gap: 2rem;
   }
+}
+
+/* Annotations sidebar toggled off — document pane alone fills the row at
+   any width, mobile included. Placed after the mobile query so it wins
+   there too. */
+.viewer-grid-collapsed {
+  grid-template-columns: 1fr;
 }
 
 .summary-block {
@@ -419,6 +430,9 @@ label.btn {
   font-style: italic;
 }
 
+/* No fixed height — the document's real height is however tall its
+   rendered pages are, and it scrolls as part of the normal page, the same
+   as any other content. */
 .document-pane {
   border: 1px solid var(--line);
   padding: 1.25rem;
@@ -426,20 +440,20 @@ label.btn {
   flex-direction: column;
 }
 
-/* Pinned at full pane height on desktop so it stays put while the
-   annotations column scrolls past it — the two panes no longer fight over
-   which one the page's scrollbar belongs to. */
+/* Pinned at full viewport height on desktop, independent of the document's
+   own (unbounded, unpinned) height — a reference sidebar that stays put on
+   screen and scrolls internally while the document beside it scrolls
+   normally, however long it is. Top offset is pushed down past
+   .global-lang-switch (fixed, top: 1rem, ~30px tall) rather than the usual
+   1rem, since that control sits right above this pane's top-right corner
+   once it's pinned in place. */
 @media (min-width: 861px) {
-  .document-pane {
+  .annotations-pane {
     position: sticky;
-    top: 1rem;
-    height: calc(100vh - 2rem);
-  }
-}
-
-@media (max-width: 860px) {
-  .document-pane {
-    height: 75vh;
+    top: 3.75rem;
+    height: calc(100vh - 4.75rem);
+    overflow-y: auto;
+    padding-right: 0.5rem;
   }
 }
 
@@ -456,6 +470,11 @@ label.btn {
 
 .pane-actions {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin: 0 0 0.75rem;
 }
 
@@ -491,13 +510,55 @@ label.btn {
   line-height: 1.6;
 }
 
+/* Normal block flow now, not an absolutely-positioned scrollbox — pages
+   stack to their natural fitted height and the surrounding page scrolls
+   through them, rather than this being its own internally-scrolling pane. */
 .pdf-pages {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
   border: 1px solid var(--line);
   background: var(--panel);
   padding: 1rem;
+}
+
+/* Fixed to the viewport (not .pdf-viewer, which is now often much taller
+   than one screen) so the page indicator/prev-next controls stay visible
+   the whole time you're scrolling through a multi-page document. */
+.pdf-page-nav {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  font-family: system-ui, sans-serif;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.pdf-page-nav button {
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.pdf-page-nav button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.pdf-page-nav button:disabled {
+  color: var(--line);
+  cursor: default;
 }
 
 .pdf-page {

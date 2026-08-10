@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchAnnotations, fetchDocumentFile } from "../api";
 import PdfDocument from "./PdfDocument";
 import AskAboutTerm from "./AskAboutTerm";
@@ -11,6 +11,17 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
   const [annotations, setAnnotations] = useState(undefined); // undefined = loading
   const [annotationsError, setAnnotationsError] = useState("");
   const [hoveredTerm, setHoveredTerm] = useState(null);
+  // A request to scroll the PDF pane to a given term — distinct from
+  // hoveredTerm (which fires constantly on mouse movement and would make
+  // the document lurch around on every hover) and carrying a nonce so
+  // clicking the same finding twice in a row still re-scrolls, even though
+  // the term string itself didn't change.
+  const [scrollToTerm, setScrollToTerm] = useState(null); // { term, nonce } | null
+  const scrollNonceRef = useRef(0);
+  const findingsListRef = useRef(null);
+  // Annotations are supplementary now — collapsible so the document can
+  // take the full width when they're not needed.
+  const [annotationsHidden, setAnnotationsHidden] = useState(false);
 
   useEffect(() => {
     let objectUrl;
@@ -72,6 +83,28 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
     });
   }
 
+  // Clicking a finding in the list scrolls the *document* pane to the
+  // matching highlighted term (handled inside PdfDocument, which owns the
+  // actual highlight spans) — the reverse of scrollToFinding below.
+  function requestScrollToTerm(term) {
+    scrollNonceRef.current += 1;
+    setScrollToTerm({ term, nonce: scrollNonceRef.current });
+  }
+
+  // Clicking a highlighted term in the document scrolls the *findings
+  // list* to the matching entry — passed down to PdfDocument as
+  // onTermClick, since it's PdfDocument that owns the click listeners on
+  // the actual highlight spans. Un-collapses the sidebar first if it's
+  // hidden, since scrolling to an entry the user can't see would be silent
+  // no-op otherwise.
+  function scrollToFinding(term) {
+    setAnnotationsHidden(false);
+    requestAnimationFrame(() => {
+      const el = findingsListRef.current?.querySelector(`[data-term="${CSS.escape(term)}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   return (
     <main className="shell shell-viewer">
       <div className="viewer-head">
@@ -81,29 +114,89 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
         <h1 className="doc-title">{document.display_name}</h1>
       </div>
 
-      <p className="disclaimer" role="alert" aria-live="polite">
-        {t("common.disclaimer")}
-      </p>
+      {/* Static from mount, not a dynamic alert — role="alert" is for
+          newly-appearing, time-sensitive content, and misapplying it here
+          could make screen readers announce inconsistently rather than
+          just read it in normal document order like any other text. */}
+      <p className="disclaimer">{t("common.disclaimer")}</p>
 
-      <div className="viewer-grid">
-        <div className="annotations-pane">
-          {annotations === undefined && !annotationsError && (
-            <p className="loading-state">{t("documentViewer.generatingAnnotations")}</p>
+      <div className={"viewer-grid" + (annotationsHidden ? " viewer-grid-collapsed" : "")}>
+        <div className="document-pane">
+          <span className="pane-label">{t("documentViewer.originalDocument")}</span>
+          <p className="viewer-original-note">{t("documentViewer.originalNote")}</p>
+          <details className="viewer-why-details">
+            <summary>{t("documentViewer.whySummary")}</summary>
+            <p>{t("documentViewer.whyBody")}</p>
+            {onShowHowItWorks && (
+              <p>
+                <button className="btn-link" onClick={onShowHowItWorks}>
+                  {t("documentViewer.whyLink")}
+                </button>
+              </p>
+            )}
+          </details>
+          {fileError && <p className="error-text" role="alert">{fileError}</p>}
+          {!url && !fileError && <p className="loading-state">{t("documentViewer.loadingDocument")}</p>}
+          {url && (
+            <>
+              <div className="pane-actions">
+                <a className="btn-link" href={url} target="_blank" rel="noopener noreferrer">
+                  {t("common.openInNewTab")}
+                </a>
+                <button
+                  type="button"
+                  className="btn-link"
+                  aria-expanded={!annotationsHidden}
+                  aria-controls="annotations-panel"
+                  onClick={() => setAnnotationsHidden((hidden) => !hidden)}
+                >
+                  {annotationsHidden
+                    ? t("documentViewer.showAnnotations")
+                    : t("documentViewer.hideAnnotations")}
+                </button>
+              </div>
+              <PdfDocument
+                url={url}
+                terms={terms}
+                hoveredTerm={hoveredTerm}
+                onHoverTerm={setHoveredTerm}
+                onTermClick={scrollToFinding}
+                scrollToTerm={scrollToTerm}
+                documentId={document.id}
+                language={language}
+                onExplained={handleExplained}
+              />
+            </>
           )}
-          {annotationsError && <p className="error-text" role="alert">{annotationsError}</p>}
+        </div>
+
+        <div className="annotations-pane" id="annotations-panel" hidden={annotationsHidden}>
+          {/* Scoped to just the loading -> summary transition, not the
+              findings list below — a screen reader user should hear "your
+              annotations are ready" once, not have the whole list read at
+              them automatically; the list itself is for deliberate
+              navigation. */}
+          <div aria-live="polite">
+            {annotations === undefined && !annotationsError && (
+              <p className="loading-state">{t("documentViewer.generatingAnnotations")}</p>
+            )}
+            {annotationsError && <p className="error-text" role="alert">{annotationsError}</p>}
+            {annotations && <p className="summary-block">{annotations.summary}</p>}
+          </div>
           {annotations && (
             <>
-              <p className="summary-block">{annotations.summary}</p>
               <p className="viewer-hint">{t("documentViewer.theseAreTerms")}</p>
-              <ol className="findings-list">
+              <ol className="findings-list" ref={findingsListRef}>
                 {annotations.items.map((item) => (
                   <li
                     className={
                       "finding" + (hoveredTerm === item.term ? " finding-active" : "")
                     }
                     key={item.term}
+                    data-term={item.term}
                     onMouseEnter={() => setHoveredTerm(item.term)}
                     onMouseLeave={() => setHoveredTerm(null)}
+                    onClick={() => requestScrollToTerm(item.term)}
                   >
                     <span className="finding-term">{item.term}</span>
                     <span className="finding-explain">{item.explanation}</span>
@@ -129,42 +222,6 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
                 ))}
               </ol>
               <AskAboutTerm documentId={document.id} language={language} onExplained={handleExplained} />
-            </>
-          )}
-        </div>
-
-        <div className="document-pane">
-          <span className="pane-label">{t("documentViewer.originalDocument")}</span>
-          <p className="viewer-original-note">{t("documentViewer.originalNote")}</p>
-          <details className="viewer-why-details">
-            <summary>{t("documentViewer.whySummary")}</summary>
-            <p>{t("documentViewer.whyBody")}</p>
-            {onShowHowItWorks && (
-              <p>
-                <button className="btn-link" onClick={onShowHowItWorks}>
-                  {t("documentViewer.whyLink")}
-                </button>
-              </p>
-            )}
-          </details>
-          {fileError && <p className="error-text" role="alert">{fileError}</p>}
-          {!url && !fileError && <p className="loading-state">{t("documentViewer.loadingDocument")}</p>}
-          {url && (
-            <>
-              <p className="pane-actions">
-                <a className="btn-link" href={url} target="_blank" rel="noopener noreferrer">
-                  {t("common.openInNewTab")}
-                </a>
-              </p>
-              <PdfDocument
-                url={url}
-                terms={terms}
-                hoveredTerm={hoveredTerm}
-                onHoverTerm={setHoveredTerm}
-                documentId={document.id}
-                language={language}
-                onExplained={handleExplained}
-              />
             </>
           )}
         </div>
