@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 
 from django.http import FileResponse
 from rest_framework import permissions, viewsets
@@ -60,7 +61,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             document.extracted_text = extract_text(document.file)
             document.status = Document.Status.READY
         except Exception:
-            logger.exception("PDF text extraction failed for document %s", document.id)
+            logger.exception("Text extraction failed for document %s", document.id)
             document.status = Document.Status.FAILED
         document.save(update_fields=["extracted_text", "status"])
 
@@ -119,9 +120,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
         # someone else's document id gets a 404, not the file.
         document = self.get_object()
         DocumentAccessLog.record(request.user, document, DocumentAccessLog.Action.DOWNLOAD)
+        # Derived from the original filename rather than hardcoded, now that
+        # uploads aren't always PDFs — the frontend uses this to decide
+        # whether to render a PDF viewer or a plain image.
+        content_type, _ = mimetypes.guess_type(document.original_filename)
         return FileResponse(
             document.file.open("rb"),
-            content_type="application/pdf",
+            content_type=content_type or "application/octet-stream",
             filename=document.original_filename,
         )
 

@@ -574,6 +574,21 @@ label.btn {
   display: block;
 }
 
+/* ImageDocument's much simpler counterpart to .pdf-pages/.pdf-page — a
+   photo/scan upload with no pages to paginate through, just one image. */
+.image-viewer {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 1rem;
+}
+
+.image-viewer-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
 /* Adapted from pdfjs-dist's text layer stylesheet — kept minimal since we
    only need positioning + the ability to highlight matched terms, not the
    full viewer (page nav, annotations, etc). */

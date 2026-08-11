@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchAnnotations, fetchDocumentFile } from "../api";
 import PdfDocument from "./PdfDocument";
+import ImageDocument from "./ImageDocument";
 import AskAboutTerm from "./AskAboutTerm";
 import { useLanguage } from "../i18n";
 
 export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
   const { language, t } = useLanguage();
   const [url, setUrl] = useState(null);
+  // The served file's MIME type (from the blob's own .type, set server-side
+  // from the original upload's extension) — decides whether the original
+  // document renders through PdfDocument (pdf.js) or the much simpler
+  // ImageDocument (a photo/scan upload has no PDF text layer to render).
+  const [fileType, setFileType] = useState(null);
   const [fileError, setFileError] = useState("");
   const [annotations, setAnnotations] = useState(undefined); // undefined = loading
   const [annotationsError, setAnnotationsError] = useState("");
@@ -31,6 +37,7 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
       .then((blob) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
+        setFileType(blob.type);
         setUrl(objectUrl);
       })
       .catch((err) => setFileError(err.message));
@@ -155,17 +162,21 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
                     : t("documentViewer.hideAnnotations")}
                 </button>
               </div>
-              <PdfDocument
-                url={url}
-                terms={terms}
-                hoveredTerm={hoveredTerm}
-                onHoverTerm={setHoveredTerm}
-                onTermClick={scrollToFinding}
-                scrollToTerm={scrollToTerm}
-                documentId={document.id}
-                language={language}
-                onExplained={handleExplained}
-              />
+              {fileType === "application/pdf" ? (
+                <PdfDocument
+                  url={url}
+                  terms={terms}
+                  hoveredTerm={hoveredTerm}
+                  onHoverTerm={setHoveredTerm}
+                  onTermClick={scrollToFinding}
+                  scrollToTerm={scrollToTerm}
+                  documentId={document.id}
+                  language={language}
+                  onExplained={handleExplained}
+                />
+              ) : (
+                <ImageDocument url={url} />
+              )}
             </>
           )}
         </div>
@@ -185,7 +196,11 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
           </div>
           {annotations && (
             <>
-              <p className="viewer-hint">{t("documentViewer.theseAreTerms")}</p>
+              <p className="viewer-hint">
+                {fileType === "application/pdf"
+                  ? t("documentViewer.theseAreTerms")
+                  : t("documentViewer.theseAreTermsImage")}
+              </p>
               <ol className="findings-list" ref={findingsListRef}>
                 {annotations.items.map((item) => (
                   <li

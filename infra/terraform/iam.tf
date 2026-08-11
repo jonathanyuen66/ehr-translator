@@ -39,6 +39,15 @@ resource "google_project_iam_member" "cloud_run_api_vertex" {
   member  = "serviceAccount:${google_service_account.cloud_run_api.email}"
 }
 
+# No matching IAM grant for Cloud Vision (documents/vision.py) — unlike DLP
+# and Vertex above, Vision API calls that send image bytes directly in the
+# request (rather than a gs:// URI) don't require a dedicated predefined
+# role; any authenticated principal in a project with vision.googleapis.com
+# enabled can call it. (roles/storage.objectViewer is only needed for the
+# gcs-referenced-image variant, which this app doesn't use — the runtime SA
+# already has bucket-scoped storage.objectAdmin below anyway.) If a real
+# deploy turns up a permission error here, that's the first thing to check.
+
 # Bucket-scoped, not project-wide — the runtime SA can only touch the one
 # bucket that actually holds uploaded documents.
 resource "google_storage_bucket_iam_member" "cloud_run_api_uploads" {

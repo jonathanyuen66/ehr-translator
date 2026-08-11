@@ -49,13 +49,13 @@ export const translations = {
       couldntProcessed: ({ n }) =>
         `${n} couldn't be processed — you can remove ${n === 1 ? "it" : "them"} and try again.`,
       addReportTitle: "Add a report",
-      addReportLead: "A lab result, scan report, or doctor's note — as a PDF.",
+      addReportLead: "A lab result, scan report, or doctor's note — as a PDF, or a photo of the pages (JPG, PNG, or HEIC).",
       uploading: "Uploading…",
-      dropHint: "Drop a PDF here, or",
+      dropHint: "Drop a file here, or",
       chooseFile: "Choose a file",
       commonQuestions: "Common questions",
-      q1: "Where do I get the PDF?",
-      a1: "In MyChart or LiveWell, open the result and choose `Download`, or the printer icon, and save it as a PDF. On a phone, tap Share, then Save to Files.",
+      q1: "Where do I get the file?",
+      a1: "In MyChart or LiveWell, open the result and choose `Download`, or the printer icon, and save it as a PDF. On a phone, tap Share, then Save to Files. Don't have the file? A clear photo of each page works too — just take it straight from your camera roll.",
       q2: "Who can see what I add?",
       a2: "Only you. Your name, birthday, and record number are removed before anything is sent to be explained.",
       q3: "How long does it take?",
@@ -82,6 +82,10 @@ export const translations = {
       generatingAnnotations: "Generating annotations… this can take a little while the first time.",
       theseAreTerms:
         "These are the terms we judged most important to explain. Don't see one you're confused about? Select any other text in the document, or type one below, to ask about it too.",
+      theseAreTermsImage:
+        "These are the terms we judged most important to explain. Don't see one you're confused about? Type it below to ask about it too.",
+      imagePreviewUnavailable:
+        "This photo can't be previewed in this browser. Use \"Open in new tab\" above to view it — the explanations below are unaffected.",
       originalDocument: "Original document",
       loadingDocument: "Loading document…",
       originalNote:
@@ -116,8 +120,8 @@ export const translations = {
       pipeline: {
         heading: "What happens to your document",
         steps: [
-          "You upload a scan report or doctor's note as a PDF.",
-          "The text is pulled out of the PDF on our server, and identifying details — name, birthdate, ID numbers, address — are automatically found and removed. This happens immediately, before anything else.",
+          "You upload a scan report or doctor's note — as a PDF, or a photo of the pages.",
+          "The text is pulled out on our server — directly for a PDF, or read off a photo with OCR — and identifying details — name, birthdate, ID numbers, address — are automatically found and removed. This happens immediately, before anything else.",
           "Only that stripped-down, de-identified text is shown to the AI. It never sees the original file, your name, or any other identifying detail.",
           "The AI picks out the key findings and looks them up against real published medical research — it's never allowed to cite a source that isn't from that real, retrieved list.",
           "You see a plain-language explanation of each finding, side by side with your original document, in your preferred language.",
@@ -363,13 +367,14 @@ export const translations = {
           ? "1 no se pudo procesar — puedes eliminarlo e intentarlo de nuevo."
           : `${n} no se pudieron procesar — puedes eliminarlos e intentarlo de nuevo.`,
       addReportTitle: "Agregar un informe",
-      addReportLead: "Un resultado de laboratorio, informe de estudio o nota del médico — en PDF.",
+      addReportLead:
+        "Un resultado de laboratorio, informe de estudio o nota del médico — en PDF, o una foto de las páginas (JPG, PNG o HEIC).",
       uploading: "Subiendo…",
-      dropHint: "Suelta un PDF aquí, o",
+      dropHint: "Suelta un archivo aquí, o",
       chooseFile: "Elegir un archivo",
       commonQuestions: "Preguntas frecuentes",
-      q1: "¿Dónde consigo el PDF?",
-      a1: "En MyChart o LiveWell, abre el resultado y elige `Descargar`, o el ícono de impresora, y guárdalo como PDF. En el teléfono, toca Compartir y luego Guardar en Archivos.",
+      q1: "¿Dónde consigo el archivo?",
+      a1: "En MyChart o LiveWell, abre el resultado y elige `Descargar`, o el ícono de impresora, y guárdalo como PDF. En el teléfono, toca Compartir y luego Guardar en Archivos. ¿No tienes el archivo? Una foto clara de cada página también sirve — tómala directamente desde tu carrete de fotos.",
       q2: "¿Quién puede ver lo que agrego?",
       a2: "Solo tú. Tu nombre, fecha de nacimiento y número de expediente se eliminan antes de enviar cualquier cosa a explicar.",
       q3: "¿Cuánto tiempo tarda?",
@@ -397,6 +402,10 @@ export const translations = {
       generatingAnnotations: "Generando anotaciones… la primera vez puede tardar un poco.",
       theseAreTerms:
         "Estos son los términos que consideramos más importantes de explicar. ¿No ves uno que te genera dudas? Selecciona cualquier otro texto del documento, o escribe uno abajo, para preguntar también por él.",
+      theseAreTermsImage:
+        "Estos son los términos que consideramos más importantes de explicar. ¿No ves uno que te genera dudas? Escríbelo abajo para preguntar también por él.",
+      imagePreviewUnavailable:
+        "Esta foto no se puede previsualizar en este navegador. Usa \"Abrir en pestaña nueva\" arriba para verla — las explicaciones de abajo no se ven afectadas.",
       originalDocument: "Documento original",
       loadingDocument: "Cargando documento…",
       originalNote:
@@ -431,8 +440,8 @@ export const translations = {
       pipeline: {
         heading: "Qué sucede con tu documento",
         steps: [
-          "Subes un informe de estudio o una nota médica como PDF.",
-          "El texto se extrae del PDF en nuestro servidor, y los datos identificativos — nombre, fecha de nacimiento, números de identificación, dirección — se detectan y eliminan automáticamente. Esto ocurre de inmediato, antes que cualquier otra cosa.",
+          "Subes un informe de estudio o una nota médica — en PDF, o como una foto de las páginas.",
+          "El texto se extrae en nuestro servidor — directamente si es un PDF, o mediante OCR si es una foto — y los datos identificativos — nombre, fecha de nacimiento, números de identificación, dirección — se detectan y eliminan automáticamente. Esto ocurre de inmediato, antes que cualquier otra cosa.",
           "Solo ese texto reducido y sin datos identificativos se muestra a la IA. Nunca ve el archivo original, tu nombre, ni ningún otro dato identificativo.",
           "La IA identifica los hallazgos clave y los contrasta con investigación médica publicada real — nunca se le permite citar una fuente que no esté en esa lista real y recuperada.",
           "Ves una explicación en lenguaje sencillo de cada hallazgo, junto a tu documento original, en tu idioma preferido.",
@@ -670,13 +679,13 @@ export const translations = {
       moreProcessing: ({ n }) => `另外 ${n} 份仍在生成說明——不需要在旁等候。`,
       couldntProcessed: ({ n }) => `${n} 份無法處理——你可以移除後重試。`,
       addReportTitle: "新增報告",
-      addReportLead: "檢驗結果、掃描報告或醫師筆記——皆須為 PDF 檔。",
+      addReportLead: "檢驗結果、掃描報告或醫師筆記——可以是 PDF 檔，或是各頁面的照片（JPG、PNG 或 HEIC）。",
       uploading: "上傳中…",
-      dropHint: "將 PDF 拖放到此處，或",
+      dropHint: "將檔案拖放到此處，或",
       chooseFile: "選擇檔案",
       commonQuestions: "常見問題",
-      q1: "我要去哪裡取得 PDF？",
-      a1: "在 MyChart 或 LiveWell 中開啟結果，選擇「下載」或印表機圖示，並存成 PDF。若使用手機，點選「分享」再選「儲存到檔案」即可。",
+      q1: "我要去哪裡取得檔案？",
+      a1: "在 MyChart 或 LiveWell 中開啟結果，選擇「下載」或印表機圖示，並存成 PDF。若使用手機，點選「分享」再選「儲存到檔案」即可。沒有檔案嗎？直接從相簿選一張每頁清楚拍攝的照片也可以。",
       q2: "誰能看到我新增的內容？",
       a2: "只有你。你的姓名、出生日期與病歷號碼，會在送出說明之前先被移除。",
       q3: "需要多久時間？",
@@ -703,6 +712,8 @@ export const translations = {
       generatingAnnotations: "正在生成說明……第一次可能需要一點時間。",
       theseAreTerms:
         "以下是我們認為最需要解釋的術語。沒看到你想了解的內容嗎？可以選取文件中的其他文字，或在下方輸入，同樣可以詢問。",
+      theseAreTermsImage: "以下是我們認為最需要解釋的術語。沒看到你想了解的內容嗎？可以在下方輸入，同樣可以詢問。",
+      imagePreviewUnavailable: "此瀏覽器無法預覽這張照片。請使用上方的「在新分頁開啟」查看——下方的說明內容不受影響。",
       originalDocument: "原始文件",
       loadingDocument: "正在載入文件…",
       originalNote: "這是你上傳的原始檔案，完全保留原樣。送給 AI 看的，只有另一份姓名等個人資訊已被塗黑的副本。",
@@ -735,8 +746,8 @@ export const translations = {
       pipeline: {
         heading: "你的文件會經歷什麼",
         steps: [
-          "你以 PDF 格式上傳掃描報告或醫師筆記。",
-          "文字會在我們的伺服器上從 PDF 擷取出來，姓名、出生日期、證件號碼、地址等識別資訊會自動被找出並移除。這在任何其他步驟之前就會立即完成。",
+          "你上傳掃描報告或醫師筆記——可以是 PDF 檔，或是各頁面的照片。",
+          "文字會在我們的伺服器上被擷取出來——PDF 檔直接擷取，照片則透過 OCR 辨識——姓名、出生日期、證件號碼、地址等識別資訊會自動被找出並移除。這在任何其他步驟之前就會立即完成。",
           "AI 只會看到這份去識別化、精簡過的文字，永遠不會看到原始檔案、你的姓名，或任何其他識別資訊。",
           "AI 會挑出關鍵發現，並與真實已發表的醫學研究比對——絕不允許引用不在該真實檢索清單中的來源。",
           "你會看到每項發現的白話解釋，與原始文件並排呈現，並使用你偏好的語言。",

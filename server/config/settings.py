@@ -134,6 +134,17 @@ VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "")
 # warning) rather than requiring every developer to have GCP credentials.
 DLP_PROJECT_ID = os.environ.get("DLP_PROJECT_ID", "")
 
+# Gates the Cloud Vision OCR pass in documents/vision.py, used to extract
+# text from an image upload (JPG/PNG/HEIC) the same way pdfplumber does for
+# a PDF. Unlike DLP_PROJECT_ID above, this isn't "optional locally" in the
+# same graceful sense — DLP is one defense-in-depth layer among several, but
+# OCR is the *only* way to get any text at all out of an image, so leaving
+# this unset just means image uploads fail clearly (PDF uploads are
+# unaffected either way). Still following the same env-var convention as
+# every other GCP project id here, including in deployed environments,
+# since the Vision client itself doesn't require an explicit project.
+VISION_PROJECT_ID = os.environ.get("VISION_PROJECT_ID", "")
+
 # In dev, emails print to the runserver console instead of actually sending —
 # the sign-in link shows up right in the terminal, same idea as grabbing the
 # link from the Firebase Auth Emulator UI during the earlier prototype. In

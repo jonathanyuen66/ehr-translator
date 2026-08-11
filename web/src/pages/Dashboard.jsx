@@ -223,7 +223,7 @@ export default function Dashboard({ user, onSignOut, onShowHowItWorks }) {
               id="file-upload"
               className="visually-hidden"
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic,.heif"
               onChange={handleFileChange}
               disabled={uploading}
             />

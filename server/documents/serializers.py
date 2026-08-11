@@ -6,6 +6,14 @@ from .models import Annotation, Document
 
 MAX_UPLOAD_SIZE = 25 * 1024 * 1024
 
+# Extension is the real gate here, not the browser-supplied content_type —
+# HEIC in particular gets reported inconsistently across browsers/OSes
+# (often "application/octet-stream" rather than "image/heic"), so a
+# content_type check would reject a lot of genuine iPhone photos. A file
+# that lies about its extension just fails at extraction time instead (same
+# as an already-corrupt PDF does today) rather than being caught here.
+_ALLOWED_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png", ".heic", ".heif")
+
 
 class AnnotationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,8 +31,8 @@ class DocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "original_filename", "status", "created_at", "file_url"]
 
     def validate_file(self, value):
-        if value.content_type != "application/pdf" or not value.name.lower().endswith(".pdf"):
-            raise serializers.ValidationError("Only PDF files are allowed.")
+        if not value.name.lower().endswith(_ALLOWED_EXTENSIONS):
+            raise serializers.ValidationError("Only PDF, JPG, PNG, or HEIC files are allowed.")
         if value.size > MAX_UPLOAD_SIZE:
             raise serializers.ValidationError("File must be smaller than 25MB.")
 

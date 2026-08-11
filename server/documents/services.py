@@ -1,12 +1,21 @@
+import io
 import logging
 
 import pdfplumber
+import pillow_heif
+from PIL import Image
 
-from . import gemini, pubmed
+from . import gemini, pubmed, vision
 from .deidentify import deidentify
 from .models import Annotation
 
 logger = logging.getLogger(__name__)
+
+# Lets Pillow open HEIC/HEIF (the default format for iPhone photos) the same
+# way it already opens JPEG/PNG — registered once at import time.
+pillow_heif.register_heif_opener()
+
+_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".heic", ".heif")
 
 
 class PersonalInfoSelected(Exception):
@@ -32,7 +41,19 @@ def _validate_citations(citations: list[dict], candidates: list[dict], term: str
 
 
 def extract_text(file_field) -> str:
-    """Extract text from a Django FileField's underlying PDF, page by page."""
+    """Extract text from a Django FileField, routing to whichever extractor
+    matches the upload — a PDF's own text layer via pdfplumber, or Cloud
+    Vision OCR for a photographed/scanned image. The extension has already
+    been validated by DocumentSerializer.validate_file by the time this
+    runs, so it's a safe dispatch key here.
+    """
+    name = (file_field.name or "").lower()
+    if name.endswith(_IMAGE_EXTENSIONS):
+        return _extract_text_from_image(file_field)
+    return _extract_text_from_pdf(file_field)
+
+
+def _extract_text_from_pdf(file_field) -> str:
     file_field.open("rb")
     try:
         with pdfplumber.open(file_field) as pdf:
@@ -40,6 +61,22 @@ def extract_text(file_field) -> str:
     finally:
         file_field.close()
     return "\n\n".join(pages_text).strip()
+
+
+def _extract_text_from_image(file_field) -> str:
+    # Normalized to plain JPEG bytes regardless of source format — Cloud
+    # Vision doesn't accept HEIC/HEIF directly, and re-encoding every format
+    # through the same path (rather than branching HEIC vs. everything
+    # else) keeps this to one code path instead of two.
+    file_field.open("rb")
+    try:
+        image = Image.open(file_field)
+        image = image.convert("RGB")
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=92)
+    finally:
+        file_field.close()
+    return vision.extract_text(buffer.getvalue())
 
 
 def build_findings_with_candidates(extracted_text: str) -> list[dict]:

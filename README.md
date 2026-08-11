@@ -8,7 +8,7 @@ Reports from PET scans and other diagnostic imaging are often dense with clinica
 
 ## Solution
 
-Upload a scan report or doctor's note (PDF), and view it side by side with:
+Upload a scan report or doctor's note — as a PDF, or a photo of the pages (JPG/PNG/HEIC) — and view it side by side with:
 
 - A plain-language summary and term-by-term annotations, written at a level anyone can understand.
 - Citations to relevant PubMed research papers backing each annotation, so explanations are traceable rather than taken on faith.
@@ -26,12 +26,12 @@ Access is invite-only, and each user's uploaded documents are private to them.
 - **Backend**: Django + Django REST Framework, PostgreSQL.
 - **Frontend**: React (Vite).
 - **Annotation pipeline**, run once per document (and cached per language after that):
-  1. Text is extracted from the uploaded PDF server-side (`pdfplumber`).
+  1. Text is extracted server-side — `pdfplumber` for a PDF's own text layer, or Cloud Vision OCR (`documents/vision.py`) for a photographed/scanned image (JPG/PNG, or HEIC converted to JPEG first). Either way, the rest of the pipeline below sees the same thing: plain extracted text, with no notion of where it came from.
   2. Identifying details (patient name, DOB, MRN, address, phone, email, SSN...) are redacted from that text before anything leaves the system, in four layered passes (`documents/dlp.py`, `documents/deidentify.py`): Cloud DLP's pre-built HIPAA-identifier detectors first, then a labeled-field regex, a narrative-name regex, and a spaCy NER pass, each catching things the others miss.
   3. Gemini reads the de-identified text and picks out the key findings a layperson would need explained, plus search terms for each.
   4. Real papers are retrieved from PubMed (NCBI E-utilities) for each finding — this is the *only* source material the model is ever allowed to cite. Any citation it returns is re-validated against that real list afterward; nothing it invents makes it to the screen.
   5. A second Gemini call writes the plain-language summary and per-finding explanations in the requested language.
-- **Document viewer**: the PDF is rendered client-side onto canvas with `pdf.js`, with an invisible text layer on top used to locate each finding's term in the actual document — that's what drives the hover-highlighting between the document and the annotations.
+- **Document viewer**: a PDF is rendered client-side onto canvas with `pdf.js`, with an invisible text layer on top used to locate each finding's term in the actual document — that's what drives the hover-highlighting between the document and the annotations. A photo/scan upload renders as a plain image instead (`ImageDocument.jsx`) — there's no equivalent text layer to overlay highlights on, so that in-context highlighting is PDF-only for now; the findings list and every explanation still work exactly the same either way.
 - **On-demand explanations**, for anything the automatic pass didn't pick: select any text in the document (or type a phrase into the box below the findings list) and `documents/services.py`'s `explain_ad_hoc_term` runs the same retrieval-then-generation pipeline — PubMed search, a grounded Gemini call, citation re-validation — for just that one term, then caches it (`Document.findings` / `Annotation.items`) so it behaves exactly like any other finding from then on: highlighted, listed, reused across languages. Unlike the automatic pass, which only ever lets Gemini see already-redacted text, a selected phrase can be anything in the original document — so it's run through the same four-layer redaction pipeline *itself* before ever reaching PubMed or Gemini; if that pipeline would redact anything in it, the request is refused rather than sent.
 - **Access logging**: every upload/view/download/delete against a document is recorded (`documents/models.py`'s `DocumentAccessLog`) — the piece of "a full audit trail" that GCP's own infra-level Cloud Audit Logs can't provide on their own, since every user's access goes through the same shared service account and those logs alone can't tell users apart. Read-only in Django admin; survives the document itself being deleted.
 - **Edge protection**: Cloudflare proxies the custom domain in front of Cloud Run — a managed WAF ruleset, Bot Fight Mode, and a rate limit on the sign-in-request and on-demand-explain endpoints (the two cheapest to abuse) all run at Cloudflare's edge, before a request ever reaches Django. See [Cloudflare WAF setup](#cloudflare-waf-setup) below.
@@ -71,6 +71,7 @@ Edit `server/.env`:
 - `GEMINI_API_KEY` — required for the annotation pipeline to work
 - `PUBMED_API_KEY` — optional, raises the PubMed rate limit
 - `DLP_PROJECT_ID` — optional locally (the Cloud DLP redaction pass is skipped with a warning if unset); required before this ever touches real patient data. See [Cloud DLP setup](#cloud-dlp-setup) below.
+- `VISION_PROJECT_ID` — needed to test image (JPG/PNG/HEIC) uploads locally; PDF uploads work fine without it. Requires `gcloud auth application-default login` and the Cloud Vision API enabled on that project — no dedicated IAM role needed beyond that for in-request image content.
 - `GS_BUCKET_NAME` / `GS_PROJECT_ID` — optional locally (uploads fall back to `server/media/` if unset); required in any deployed environment. See [GCS storage setup](#gcs-storage-setup) below.
 
 Then:

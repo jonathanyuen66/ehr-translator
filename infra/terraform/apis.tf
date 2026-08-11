@@ -7,6 +7,7 @@ locals {
     "sqladmin.googleapis.com",
     "dlp.googleapis.com",
     "aiplatform.googleapis.com",
+    "vision.googleapis.com",
     "compute.googleapis.com",
     "vpcaccess.googleapis.com",
     "servicenetworking.googleapis.com",
