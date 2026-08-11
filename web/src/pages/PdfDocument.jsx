@@ -183,7 +183,28 @@ export default function PdfDocument({
     // the document column too — so this watches the container itself
     // rather than just window "resize", and recomputes layout only, not a
     // full reload of the PDF.
-    function handleResize() {
+    //
+    // Width-only, deliberately: renderPages() itself mutates this same
+    // container (clearing it, then appending one page at a time), and now
+    // that pages stack in normal flow instead of a fixed-height scrollbox,
+    // the container's *height* grows with every page appended during that
+    // very loop. Reacting to those self-inflicted height changes would
+    // retrigger renderPages() mid-render, which retriggers more height
+    // changes, and so on — a feedback loop that was especially visible
+    // (glitchy, restarting mid-scroll) on anything with more than one page,
+    // since more pages means more of the loop's own height changes for the
+    // debounce window to catch. The fit-to-width scale only ever depends on
+    // width anyway, so filtering to real width changes is both the fix and
+    // the semantically correct behavior.
+    // Seeded synchronously (not left to the observer's own guaranteed
+    // initial callback) so that first callback — which reports this same
+    // width, since nothing's changed yet — is correctly recognized as a
+    // no-op instead of scheduling a redundant render pass.
+    let lastWidth = containerRef.current.clientWidth;
+    function handleResize(entries) {
+      const newWidth = entries[0]?.contentRect.width;
+      if (newWidth === undefined || Math.abs(newWidth - lastWidth) < 1) return;
+      lastWidth = newWidth;
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         renderPages().catch((err) => setError(err.message));
