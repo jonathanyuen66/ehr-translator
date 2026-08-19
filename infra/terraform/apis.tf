@@ -8,6 +8,7 @@ locals {
     "dlp.googleapis.com",
     "aiplatform.googleapis.com",
     "vision.googleapis.com",
+    "translate.googleapis.com",
     "compute.googleapis.com",
     "vpcaccess.googleapis.com",
     "servicenetworking.googleapis.com",

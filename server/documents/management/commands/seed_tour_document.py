@@ -5,8 +5,8 @@ from django.core.management.base import BaseCommand
 
 from accounts.models import User
 from documents.gemini import LANGUAGE_NAMES
-from documents.models import Annotation, Document
-from documents.services import build_annotations_for_language, build_findings_with_candidates, extract_text
+from documents.models import Document
+from documents.services import build_findings_with_candidates, extract_text, get_or_create_annotation
 
 TOUR_USER_EMAIL = "tour@plainmed.local"
 
@@ -73,11 +73,6 @@ class Command(BaseCommand):
 
         for language in LANGUAGE_NAMES:
             self.stdout.write(f"Generating {language} annotations...")
-            result = build_annotations_for_language(document.extracted_text, document.findings, language)
-            Annotation.objects.update_or_create(
-                document=document,
-                language=language,
-                defaults={"summary": result["summary"], "items": result["items"]},
-            )
+            get_or_create_annotation(document, language)
 
         self.stdout.write(self.style.SUCCESS(f"Seeded tour document id={document.id}"))

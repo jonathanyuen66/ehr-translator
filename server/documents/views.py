@@ -8,14 +8,14 @@ from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 
 from . import gemini
-from .models import Annotation, Document, DocumentAccessLog
+from .models import Document, DocumentAccessLog
 from .serializers import AnnotationSerializer, DocumentSerializer
 from .services import (
     PersonalInfoSelected,
-    build_annotations_for_language,
     build_findings_with_candidates,
     explain_ad_hoc_term,
     extract_text,
+    get_or_create_annotation,
 )
 
 # A generous but bounded limit — this becomes a Gemini + PubMed call per
@@ -72,14 +72,24 @@ class DocumentViewSet(viewsets.ModelViewSet):
             try:
                 document.findings = build_findings_with_candidates(document.extracted_text)
                 document.save(update_fields=["findings"])
-                result = build_annotations_for_language(document.extracted_text, document.findings, "en")
-                Annotation.objects.update_or_create(
-                    document=document,
-                    language="en",
-                    defaults={"summary": result["summary"], "items": result["items"]},
-                )
             except Exception:
-                logger.exception("Annotation generation failed for document %s", document.id)
+                logger.exception("Finding identification failed for document %s", document.id)
+            else:
+                # Every supported language, not just English — translation is
+                # cheap and fast enough to do eagerly here rather than making
+                # a reader wait on it the first time they switch languages
+                # (get_or_create_annotation's whole reason for existing).
+                # Each language is its own try/except so one language failing
+                # (e.g. Translation misconfigured) doesn't cost the others.
+                for language in gemini.LANGUAGE_NAMES:
+                    try:
+                        get_or_create_annotation(document, language)
+                    except Exception:
+                        logger.exception(
+                            "Annotation generation failed for document %s language %s",
+                            document.id,
+                            language,
+                        )
 
     def perform_update(self, serializer):
         # The shared tour sample is reachable through these same endpoints
@@ -139,21 +149,18 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if language not in gemini.LANGUAGE_NAMES:
             return Response({"detail": f"Unsupported language '{language}'."}, status=400)
 
-        annotation = Annotation.objects.filter(document=document, language=language).first()
-        if annotation is not None:
-            return Response(AnnotationSerializer(annotation).data)
-
+        # Almost always already cached — perform_create generates every
+        # supported language eagerly at upload time. This lazy path only
+        # actually does work for a document uploaded before that existed, or
+        # if generating one of the other languages failed at upload time.
         if document.status != Document.Status.READY or not document.findings:
             return Response(
                 {"detail": "Annotations not available for this document yet."},
                 status=404,
             )
 
-        # Not cached yet for this language — generate it now. The expensive
-        # part (finding the terms + real PubMed candidates) already ran once
-        # at upload time and is reused here, so this is a single Gemini call.
         try:
-            result = build_annotations_for_language(document.extracted_text, document.findings, language)
+            annotation = get_or_create_annotation(document, language)
         except Exception:
             logger.exception(
                 "Annotation generation failed for document %s language %s", document.id, language
@@ -163,11 +170,6 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 status=502,
             )
 
-        annotation, _ = Annotation.objects.update_or_create(
-            document=document,
-            language=language,
-            defaults={"summary": result["summary"], "items": result["items"]},
-        )
         return Response(AnnotationSerializer(annotation).data)
 
     @action(detail=True, methods=["post"])

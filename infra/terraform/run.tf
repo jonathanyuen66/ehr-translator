@@ -51,6 +51,7 @@ locals {
     { name = "GS_PROJECT_ID", value = var.project_id },
     { name = "DLP_PROJECT_ID", value = var.project_id },
     { name = "VISION_PROJECT_ID", value = var.project_id },
+    { name = "TRANSLATE_PROJECT_ID", value = var.project_id },
     { name = "VERTEX_PROJECT_ID", value = var.project_id },
     { name = "VERTEX_LOCATION", value = var.region },
     # Vertex's publisher-model catalog doesn't always carry the same model

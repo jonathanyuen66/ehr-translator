@@ -48,6 +48,12 @@ resource "google_project_iam_member" "cloud_run_api_vertex" {
 # already has bucket-scoped storage.objectAdmin below anyway.) If a real
 # deploy turns up a permission error here, that's the first thing to check.
 
+resource "google_project_iam_member" "cloud_run_api_translate" {
+  project = var.project_id
+  role    = "roles/cloudtranslate.user"
+  member  = "serviceAccount:${google_service_account.cloud_run_api.email}"
+}
+
 # Bucket-scoped, not project-wide — the runtime SA can only touch the one
 # bucket that actually holds uploaded documents.
 resource "google_storage_bucket_iam_member" "cloud_run_api_uploads" {

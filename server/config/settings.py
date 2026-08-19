@@ -145,6 +145,14 @@ DLP_PROJECT_ID = os.environ.get("DLP_PROJECT_ID", "")
 # since the Vision client itself doesn't require an explicit project.
 VISION_PROJECT_ID = os.environ.get("VISION_PROJECT_ID", "")
 
+# Gates the Cloud Translation pass in documents/translate.py, used to derive
+# every non-English Annotation from the canonical English one (see
+# documents/services.py's get_or_create_annotation) instead of a second
+# independent Gemini generation per language. Left blank in local dev — a
+# non-English language just fails clearly on request, same as
+# VISION_PROJECT_ID above; English-only local dev is otherwise unaffected.
+TRANSLATE_PROJECT_ID = os.environ.get("TRANSLATE_PROJECT_ID", "")
+
 # In dev, emails print to the runserver console instead of actually sending —
 # the sign-in link shows up right in the terminal, same idea as grabbing the
 # link from the Firebase Auth Emulator UI during the earlier prototype. In
