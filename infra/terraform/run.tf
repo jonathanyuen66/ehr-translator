@@ -148,6 +148,21 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
 
+      # Absent entirely (not set to a placeholder) when no key is configured —
+      # see secrets.tf.
+      dynamic "env" {
+        for_each = google_secret_manager_secret.pubmed_api_key
+        content {
+          name = "PUBMED_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = env.value.secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
@@ -166,6 +181,13 @@ resource "google_cloud_run_v2_service" "api" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
+
+  # The optional PUBMED_API_KEY env above only names the secret, so nothing
+  # else orders these ahead of the revision that reads "latest" from it.
+  depends_on = [
+    google_secret_manager_secret_version.pubmed_api_key,
+    google_secret_manager_secret_iam_member.cloud_run_api_pubmed,
+  ]
 }
 
 # Public invocation is the whole point now that the service's own URL is the

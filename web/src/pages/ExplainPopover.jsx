@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { explainTerm } from "../api";
 import { useLanguage } from "../i18n";
+import CitationList from "./CitationList";
 
 // Clamps the popover inside the viewport so a selection near an edge
 // doesn't render partly off-screen.
@@ -94,15 +95,7 @@ export default function ExplainPopover({ documentId, language, selection, onExpl
           <span className="finding-term">{result.term}</span>
           <span className="finding-explain">{result.explanation}</span>
           {result.source_found ? (
-            <ul className="citation-list">
-              {result.citations.map((c) => (
-                <li key={c.pmid}>
-                  <a className="citation" href={c.url} target="_blank" rel="noopener noreferrer">
-                    {c.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <CitationList citations={result.citations} />
           ) : (
             <p className="no-source">{t("common.noSourceFound")}</p>
           )}

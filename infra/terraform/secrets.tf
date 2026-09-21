@@ -50,3 +50,22 @@ resource "google_secret_manager_secret_version" "mailgun_smtp_password" {
   secret      = google_secret_manager_secret.mailgun_smtp_password.id
   secret_data = var.mailgun_smtp_password != "" ? var.mailgun_smtp_password : "unset"
 }
+
+# Only exists at all when a key is provided — unlike the Mailgun secret above,
+# there is no safe placeholder value: documents/pubmed.py sends whatever
+# PUBMED_API_KEY holds straight to NCBI, so a stand-in string would be sent as
+# a (rejected) key instead of correctly meaning "no key".
+resource "google_secret_manager_secret" "pubmed_api_key" {
+  count     = var.pubmed_api_key != "" ? 1 : 0
+  secret_id = "ehr-translator-pubmed-api-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required]
+}
+
+resource "google_secret_manager_secret_version" "pubmed_api_key" {
+  count       = var.pubmed_api_key != "" ? 1 : 0
+  secret      = google_secret_manager_secret.pubmed_api_key[0].id
+  secret_data = var.pubmed_api_key
+}

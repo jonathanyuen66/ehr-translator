@@ -68,7 +68,7 @@ class Command(BaseCommand):
         document.file.save("sample-report.pdf", ContentFile(_build_sample_pdf()), save=False)
         document.extracted_text = extract_text(document.file)
         document.status = Document.Status.READY
-        document.findings = build_findings_with_candidates(document.extracted_text)
+        document.findings, document.search_context = build_findings_with_candidates(document.extracted_text)
         document.save()
 
         for language in LANGUAGE_NAMES:

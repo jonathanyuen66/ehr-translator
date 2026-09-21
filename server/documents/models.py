@@ -27,6 +27,11 @@ class Document(models.Model):
     # PubMed candidates" pass, cached so switching the annotation language
     # later only needs one more Gemini call, not a full re-run.
     findings = models.JSONField(default=list, blank=True)
+    # What identify_findings said the document *is* ({"modality",
+    # "body_region"}, only as the document states it) — kept so the on-demand
+    # "explain this term" path can search PubMed in the same scan context the
+    # automatic pass used, instead of searching the bare selected text.
+    search_context = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     # The one shared, synthetic document behind the guided product tour —
     # owned by a hidden system account, never a real user's upload. Flagged

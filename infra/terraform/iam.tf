@@ -80,6 +80,13 @@ resource "google_secret_manager_secret_iam_member" "cloud_run_api_mailgun" {
   member    = "serviceAccount:${google_service_account.cloud_run_api.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "cloud_run_api_pubmed" {
+  count     = var.pubmed_api_key != "" ? 1 : 0
+  secret_id = google_secret_manager_secret.pubmed_api_key[0].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run_api.email}"
+}
+
 # --- ci_deployer: deploy/build only, no access to PHI, DB, DLP, or Vertex ---
 
 resource "google_project_iam_member" "ci_deployer_run_admin" {

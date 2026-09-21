@@ -3,6 +3,7 @@ import { fetchAnnotations, fetchDocumentFile } from "../api";
 import PdfDocument from "./PdfDocument";
 import ImageDocument from "./ImageDocument";
 import AskAboutTerm from "./AskAboutTerm";
+import CitationList from "./CitationList";
 import { useLanguage } from "../i18n";
 
 export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
@@ -216,20 +217,7 @@ export default function DocumentViewer({ document, onBack, onShowHowItWorks }) {
                     <span className="finding-term">{item.term}</span>
                     <span className="finding-explain">{item.explanation}</span>
                     {item.source_found ? (
-                      <ul className="citation-list">
-                        {item.citations.map((c) => (
-                          <li key={c.pmid}>
-                            <a
-                              className="citation"
-                              href={c.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {c.title}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
+                      <CitationList citations={item.citations} />
                     ) : (
                       <p className="no-source">{t("common.noSourceFound")}</p>
                     )}

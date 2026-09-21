@@ -29,6 +29,9 @@ root_domain = "" # e.g. "plainmed.health"
 # sending — see README's Mailgun setup section.
 mailgun_smtp_login    = ""
 mailgun_smtp_password = ""
+
+# Optional: free NCBI API key (raises PubMed from 3 to 10 req/sec).
+pubmed_api_key = ""
 default_from_email    = "" # e.g. "PlainMed <no-reply@mg.plainmed.health>" — must be on your verified Mailgun domain
 
 # Where to get an approve/deny link when someone not on the invite list

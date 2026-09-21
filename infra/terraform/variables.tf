@@ -113,6 +113,13 @@ variable "mailgun_smtp_password" {
   sensitive   = true
 }
 
+variable "pubmed_api_key" {
+  description = "Free NCBI E-utilities API key (ncbi.nlm.nih.gov/account -> API Key Management). Raises PubMed from 3 to 10 requests/sec, which the citation retrieval in documents/pubmed.py leans on for upload latency. Optional: blank leaves the api service unauthenticated (still works, just slower). Stored in Secret Manager, same tfstate-privacy caveat as mailgun_smtp_password."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "default_from_email" {
   description = "From address for outgoing email — must be on your verified Mailgun domain once one exists, e.g. \"PlainMed <no-reply@mg.yourdomain.com>\"."
   type        = string

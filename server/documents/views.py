@@ -70,8 +70,10 @@ class DocumentViewSet(viewsets.ModelViewSet):
             # viewable, it just has no annotations yet — extraction succeeding
             # is what actually gates whether the PDF itself can be viewed.
             try:
-                document.findings = build_findings_with_candidates(document.extracted_text)
-                document.save(update_fields=["findings"])
+                document.findings, document.search_context = build_findings_with_candidates(
+                    document.extracted_text
+                )
+                document.save(update_fields=["findings", "search_context"])
             except Exception:
                 logger.exception("Finding identification failed for document %s", document.id)
             else:

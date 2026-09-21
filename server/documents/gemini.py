@@ -61,31 +61,171 @@ def _generate_json(prompt: str, attempts: int = 2) -> dict:
     raise last_error
 
 
-def identify_findings(deidentified_text: str) -> list[dict]:
+def identify_findings(deidentified_text: str) -> dict:
     """Language-independent first pass: pick out findings a layperson would
-    need explained and propose PubMed search keywords for each. Not the final
-    annotation text yet — that comes from the grounded, per-language second
-    pass, so this only needs to run once per document regardless of how many
+    need explained, and describe them in the structured form PubMed retrieval
+    needs. Returns {"context": {...}, "findings": [...]}.
+
+    The model only proposes *pieces* — a canonical concept, synonyms, and the
+    document's scan type / body region. pubmed.build_query assembles the
+    actual boolean query (with its human-subjects / has-abstract filters) in
+    code, so a bare, ambiguous term like "uptake" is searched as "FDG uptake"
+    in a PET/CT context rather than as a naked word.
+
+    Not the final annotation text — that comes from the grounded second pass,
+    so this only needs to run once per document regardless of how many
     languages get requested later.
     """
     prompt = f"""You are helping a family member understand a medical scan report
 or doctor's note. Below is the de-identified text of the document.
 
-Identify up to 10 key clinical findings, measurements, or terms that a
-layperson would need explained. For each finding, give the exact term or
-phrase as it appears in the text, and 2-4 concise PubMed search keywords
-(in English, since that's what PubMed indexes) that would find relevant
-literature about it.
+Step 1 - describe the document, using ONLY what the text itself states. Do
+not diagnose or infer a condition the document does not name.
+  "modality": the exam type as written (e.g. "PET/CT", "chest CT", "MRI
+     brain", "complete blood count"), or "" if unclear
+  "body_region": the anatomy or system examined (e.g. "chest", "abdomen and
+     pelvis"), or "" if unclear
+
+Step 2 - identify up to 10 key clinical findings, measurements, or terms
+that a layperson would need explained. For each:
+  "term": the exact term or phrase as it appears in the text (unchanged,
+     same spelling and capitalization - it is used to find it in the document)
+  "concept": the term as MEDICAL LITERATURE names it - a short noun phrase of
+     1-4 words like a PubMed title or MeSH heading uses, NOT a plain-language
+     description. Expand abbreviations and make generic one-word terms
+     specific to this kind of exam. Examples: "SUVmax" -> "standardized
+     uptake value"; "uptake" in a PET report -> "FDG uptake"; "right
+     paratracheal lymph node" -> "paratracheal lymph node"; "mild
+     hyponatremia" -> "hyponatremia"; "hypermetabolic" -> "FDG avidity". Do
+     NOT add a diagnosis, cause, or organ the document does not state
+     ("osteosclerotic lesions" -> "osteosclerotic bone lesions", never
+     "osteosclerotic metastases"). If a term is a generic adjective with no
+     searchable medical concept of its own (e.g. "physiologic", "normal"),
+     use "" as its concept.
+  "synonyms": 0-3 alternative names for the concept that medical literature
+     uses, in English (use [] if none)
+  "needs_context": true ONLY if the concept is a generic word or abbreviation
+     whose meaning depends on the type of exam (e.g. "uptake", "SUV",
+     "lesion", "enhancement"); false for a specific named condition,
+     structure, or lab finding (e.g. "hyponatremia", "leukocytosis",
+     "paratracheal lymph node")
 
 Respond with strict JSON only, in this shape:
-{{"findings": [{{"term": "...", "pubmed_query": "..."}}]}}
+{{"context": {{"modality": "...", "body_region": "..."}},
+  "findings": [{{"term": "...", "concept": "...", "synonyms": ["..."], "needs_context": false}}]}}
 
 Document text:
 ---
 {deidentified_text}
 ---"""
     result = _generate_json(prompt)
-    return result.get("findings", [])
+    context = result.get("context") or {}
+    return {
+        "context": {
+            "modality": str(context.get("modality") or "").strip(),
+            "body_region": str(context.get("body_region") or "").strip(),
+        },
+        "findings": result.get("findings", []),
+    }
+
+
+def describe_term(term: str, context: dict) -> dict:
+    """The on-demand path's counterpart to identify_findings' per-finding
+    fields: a reader's own selection ("SUV", "hyponatremia") has no
+    model-refined concept yet, and searching PubMed for the raw selected text
+    is exactly the weak-query problem identify_findings solves for the
+    automatic picks. Only the (already de-identified-safe) scan context is
+    sent, not the document.
+    """
+    prompt = f"""A reader of a medical report selected the term "{term}". The exam is
+"{context.get("modality", "")}" of "{context.get("body_region", "")}" (either may be blank).
+
+Describe it for a literature search. Respond with strict JSON only:
+{{"concept": "...", "synonyms": ["..."], "needs_context": false}}
+
+  "concept": the term as MEDICAL LITERATURE names it - a short noun phrase of
+     1-4 words like a PubMed title or MeSH heading uses, NOT a plain-language
+     description ("SUVmax" -> "standardized uptake value"). Do NOT add a
+     diagnosis, cause, or organ that was not stated. "" if it is a generic
+     adjective with no searchable medical concept.
+  "synonyms": 0-3 alternative names medical literature uses ([] if none)
+  "needs_context": true ONLY if the term is a generic word or abbreviation
+     whose meaning depends on the type of exam (e.g. "uptake", "SUV",
+     "lesion"); false for a specific named condition, structure, or lab
+     finding"""
+    result = _generate_json(prompt)
+    return {
+        "concept": str(result.get("concept") or "").strip() or term,
+        "synonyms": [s for s in (result.get("synonyms") or []) if isinstance(s, str)][:3],
+        "needs_context": bool(result.get("needs_context")),
+    }
+
+
+def grade_candidates(graded_input: list[dict]) -> list[list[dict]]:
+    """Relevance gate between retrieval and generation: for each term, judge
+    which of its retrieved PubMed candidates are actually about that concept,
+    in the context of this document. PubMed's search and the code-side rerank
+    can only go so far on ambiguous terms; this is the check that catches a
+    paper that merely contains the words.
+
+    graded_input: [{"term", "concept", "context", "candidates": [{"pmid",
+    "title", "abstract"}]}], where "context" is a non-empty exam description
+    only for terms whose meaning depends on it (needs_context) — for a
+    specific named condition it is left empty, so a paper on that condition is
+    never rejected merely for not being about the exam type. Returns, per input entry (same order), a list of
+    {"pmid", "relevance": "yes"|"tangential"|"no", "human_subjects": bool}.
+    Indexed by position rather than term text so a reworded term can't
+    misalign the results.
+    """
+    payload = [
+        {
+            "index": i,
+            "term": entry["term"],
+            "concept": entry["concept"],
+            "exam_context": entry.get("context") or "(not needed for this term)",
+            "candidates": [
+                {"pmid": c["pmid"], "title": c["title"], "abstract": c["abstract"][:1200]}
+                for c in entry["candidates"]
+            ],
+        }
+        for i, entry in enumerate(graded_input)
+    ]
+    prompt = f"""You are screening PubMed papers for a tool that explains medical
+reports to patients. For each item below, decide whether each candidate paper
+is genuinely ABOUT the item's medical concept. Where an item gives an
+"exam_context", use it only to pin down what a generic term means (e.g.
+"uptake" in a PET/CT report means FDG uptake) - do not require the paper to be
+about that exam type; a good paper on the concept itself qualifies.
+
+For every candidate give:
+  "relevance": "yes" only if the concept ITSELF is the paper's central
+     subject and reading it would help a patient understand what the concept
+     is, how it is measured, or what it signifies - an overview, review,
+     guideline, or a study focused on the concept. "tangential" if the concept
+     is merely used, reported, or applied inside a study of something else
+     (e.g. a paper on one specific cancer that happens to report the finding).
+     "no" if it is unrelated, uses the word in a different sense, or is not
+     about the concept.
+  "human_subjects": true only if the paper studies human patients or human
+     data; false for animal, cell-culture, veterinary, or purely
+     computational/phantom work.
+
+Be strict. When in doubt, choose "tangential" or "no".
+
+Respond with strict JSON only, in this shape:
+{{"grades": [{{"index": 0, "candidates": [{{"pmid": "...", "relevance": "yes", "human_subjects": true}}]}}]}}
+
+Items:
+{json.dumps(payload, indent=2)}"""
+    result = _generate_json(prompt)
+
+    by_index = {}
+    for entry in result.get("grades", []):
+        try:
+            by_index[int(entry.get("index"))] = entry.get("candidates", [])
+        except (TypeError, ValueError):
+            continue
+    return [by_index.get(i, []) for i in range(len(graded_input))]
 
 
 def explain_term(term_with_candidates: dict, deidentified_text: str, language: str = "en") -> dict:
@@ -107,12 +247,19 @@ with candidate PubMed sources for it.
 Write a plain-language explanation (as if explaining to a 10-year-old) of
 what "{term}" means in the context of this document. You may ONLY cite
 PubMed sources from the "candidates" list below — never invent a PMID or
-cite one that isn't listed. If none of the candidates are actually relevant,
-leave "citations" empty and still explain the term in general plain
-language without a citation.
+cite one that isn't listed.
+
+A citation must be backed by evidence: for each one, copy an
+"evidence_quote" — a sentence or fragment taken VERBATIM, word for word,
+from that candidate's abstract, which supports what your explanation says
+about the term. Do not paraphrase or fix the quote. A citation whose quote
+does not appear exactly in that abstract is discarded, so a weak or
+tangential paper is worse than none: if no candidate's abstract genuinely
+supports your explanation, leave "citations" empty and still explain the
+term in general plain language without a citation.
 
 Respond with strict JSON only, in this shape:
-{{"explanation": "...", "citations": [{{"pmid": "...", "title": "..."}}]}}
+{{"explanation": "...", "citations": [{{"pmid": "...", "evidence_quote": "..."}}]}}
 
 Document text:
 ---
@@ -146,13 +293,22 @@ as if explaining it to a 10-year-old.
 Then, for each finding, write a plain-language explanation (as if explaining
 to a 10-year-old) of what it means. You may ONLY cite PubMed sources from
 that finding's own "candidates" list below — never invent a PMID or cite one
-that isn't listed. If none of the candidates are actually relevant to the
-finding, leave "citations" empty and still explain the term in general plain
-language without a citation. Keep each "term" field exactly as given below —
-do not translate it — so it stays findable in the source document.
+that isn't listed.
+
+A citation must be backed by evidence: for each one, copy an
+"evidence_quote" — a sentence or fragment taken VERBATIM, word for word,
+from that candidate's abstract, which supports what your explanation says
+about the finding. Do not paraphrase or fix the quote. A citation whose quote
+does not appear exactly in that abstract is discarded, so a weak or
+tangential paper is worse than none: if no candidate's abstract genuinely
+supports your explanation of a finding, leave its "citations" empty and
+still explain the term in general plain language without a citation.
+
+Keep each "term" field exactly as given below — do not translate it — so it
+stays findable in the source document.
 
 Respond with strict JSON only, in this shape:
-{{"summary": "...", "items": [{{"term": "...", "explanation": "...", "citations": [{{"pmid": "...", "title": "..."}}]}}]}}
+{{"summary": "...", "items": [{{"term": "...", "explanation": "...", "citations": [{{"pmid": "...", "evidence_quote": "..."}}]}}]}}
 
 Document text:
 ---

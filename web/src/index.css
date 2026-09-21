@@ -422,6 +422,34 @@ label.btn {
   content: "see: ";
 }
 
+.citation-meta {
+  display: block;
+  margin-top: 0.1rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.citation-evidence {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.citation-evidence q {
+  font-style: italic;
+}
+
+.citation-evidence-label {
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-style: normal;
+  letter-spacing: 0.02em;
+}
+
 .no-source {
   margin-top: 0.4rem;
   font-family: system-ui, sans-serif;

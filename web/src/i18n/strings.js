@@ -6,6 +6,17 @@
 // the same one used for document annotations.
 export const translations = {
   en: {
+    citation: {
+      whyThisSource: "Why this source:",
+      studyTypes: {
+        meta_analysis: "Meta-analysis",
+        systematic_review: "Systematic review",
+        guideline: "Guideline",
+        review: "Review",
+        clinical_trial: "Clinical trial",
+        case_report: "Case report",
+      },
+    },
     common: {
       disclaimer:
         "This tool does not provide medical advice. It only helps explain the objective content of a document — always consult a qualified healthcare provider for interpretation and care decisions.",
@@ -319,6 +330,17 @@ export const translations = {
   },
 
   es: {
+    citation: {
+      whyThisSource: "Por qué esta fuente:",
+      studyTypes: {
+        meta_analysis: "Metaanálisis",
+        systematic_review: "Revisión sistemática",
+        guideline: "Guía clínica",
+        review: "Revisión",
+        clinical_trial: "Ensayo clínico",
+        case_report: "Caso clínico",
+      },
+    },
     common: {
       disclaimer:
         "Esta herramienta no ofrece asesoramiento médico. Solo ayuda a explicar el contenido objetivo de un documento — consulta siempre a un profesional de la salud cualificado para la interpretación y las decisiones de atención.",
@@ -639,6 +661,17 @@ export const translations = {
   },
 
   "zh-Hant": {
+    citation: {
+      whyThisSource: "為何引用這篇：",
+      studyTypes: {
+        meta_analysis: "統合分析",
+        systematic_review: "系統性回顧",
+        guideline: "臨床指引",
+        review: "文獻回顧",
+        clinical_trial: "臨床試驗",
+        case_report: "病例報告",
+      },
+    },
     common: {
       disclaimer:
         "本工具不提供醫療建議，僅協助解釋文件中的客觀內容——解讀結果與照護決定請務必諮詢合格的醫療人員。",

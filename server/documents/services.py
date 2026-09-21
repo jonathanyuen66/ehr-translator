@@ -1,5 +1,6 @@
 import io
 import logging
+import re
 
 import pdfplumber
 import pillow_heif
@@ -23,21 +24,129 @@ class PersonalInfoSelected(Exception):
     like personal information, rather than a clinical term."""
 
 
-def _validate_citations(citations: list[dict], candidates: list[dict], term: str) -> list[dict]:
-    """Re-checks the model's cited PMIDs against the real, retrieved
-    candidates — it's never trusted on its own to have only cited what it
-    was given, since that's the whole point of the retrieval-then-generation
-    split (gemini.generate_annotations / gemini.explain_term).
+_NON_ALNUM = re.compile(r"[^0-9a-z]+")
+# A quote shorter than this proves nothing — a few common words appear in any
+# abstract. Measured on the normalized text.
+MIN_QUOTE_CHARS = 25
+_ELLIPSIS = re.compile(r"\.\.\.|…")
+# Only ever this many citations shown per term, however many pass.
+MAX_CITATIONS = 3
+
+
+def _normalize(text: str) -> str:
+    """Casefold and collapse everything but letters/digits, so a quote that
+    differs from the abstract only in punctuation, hyphenation, or spacing
+    still counts as verbatim — but a reworded one doesn't."""
+    return _NON_ALNUM.sub(" ", (text or "").casefold()).strip()
+
+
+def _quote_supported(quote: str, abstract: str) -> bool:
+    """True only if every fragment of the quote appears in the abstract. The
+    model may join two excerpts with an ellipsis, so each side is checked on
+    its own; the quote as a whole must still be long enough to mean
+    something."""
+    normalized_abstract = _normalize(abstract)
+    fragments = [_normalize(f) for f in _ELLIPSIS.split(quote or "")]
+    fragments = [f for f in fragments if f]
+    if not fragments or sum(len(f) for f in fragments) < MIN_QUOTE_CHARS:
+        return False
+    return all(f in normalized_abstract for f in fragments)
+
+
+def _verify_citations(citations: list[dict], candidates: list[dict], term: str) -> list[dict]:
+    """The last gate before a citation reaches a reader. The model is never
+    trusted on its own — for each citation it returns, the PMID must be one
+    of the real candidates it was handed *and* the "evidence_quote" it
+    claims to have taken from that paper must actually appear in that
+    paper's abstract. Being real isn't enough; being demonstrably relevant is
+    the point. Title/URL/study metadata always come from PubMed's record,
+    never from the model.
     """
-    valid_candidates = {c["pmid"]: c for c in candidates}
-    validated = []
+    by_pmid = {c["pmid"]: c for c in candidates}
+    verified, seen = [], set()
     for citation in citations:
-        match = valid_candidates.get(str(citation.get("pmid", "")))
-        if match:
-            validated.append({"pmid": match["pmid"], "title": match["title"], "url": match["url"]})
-        else:
-            logger.warning("Dropping unverified citation %r for term %r", citation, term)
-    return validated
+        pmid = str(citation.get("pmid", ""))
+        match = by_pmid.get(pmid)
+        if match is None:
+            logger.warning("Dropping citation for term %r: PMID %r was not a retrieved candidate", term, pmid)
+            continue
+        if pmid in seen:
+            continue
+        quote = str(citation.get("evidence_quote") or "").strip()
+        if not _quote_supported(quote, match.get("abstract", "")):
+            logger.warning("Dropping citation %s for term %r: quote not found in its abstract", pmid, term)
+            continue
+        seen.add(pmid)
+        verified.append(
+            {
+                "pmid": match["pmid"],
+                "title": match["title"],
+                "url": match["url"],
+                "study_type": match.get("study_type"),
+                "year": match.get("year"),
+                "evidence_quote": quote,
+            }
+        )
+    return verified[:MAX_CITATIONS]
+
+
+def _candidates_for_item(item_term: str, position: int, count: int, findings: list[dict]) -> list[dict]:
+    """Finds the retrieved candidates for a model-returned item. Matches on
+    the normalized term first (so a changed capitalization or stray
+    punctuation doesn't silently cost an item its citations); if that fails
+    and the model returned the same number of items as findings, falls back
+    to position, since it was given them in order."""
+    wanted = _normalize(item_term)
+    for f in findings:
+        if _normalize(f["term"]) == wanted:
+            return f["candidates"]
+    if count == len(findings) and 0 <= position < len(findings):
+        return findings[position]["candidates"]
+    return []
+
+
+def _exam_context_text(context: dict) -> str:
+    parts = [context.get("modality", ""), context.get("body_region", "")]
+    return ", ".join(p for p in parts if p)
+
+
+def _select_candidates(specs: list[dict], pools: list[list[dict]]) -> list[list[dict]]:
+    """Relevance gate: of the reranked PubMed candidates for each term, keep
+    only those a grader judges genuinely about the concept, in human
+    subjects — capped at MAX_CITATIONS. A term whose candidates all fail ends
+    up with none, and is then explained in general language, uncited.
+
+    If the grading call itself fails, degrade to the top of the deterministic
+    rerank rather than failing the whole upload — every citation still has to
+    pass _verify_citations' quote check afterward."""
+    if not specs:
+        return []
+    graded_input = [
+        {
+            "term": s["term"],
+            "concept": s["concept"],
+            "context": _exam_context_text(s.get("context") or {}) if s.get("needs_context") else "",
+            "candidates": pool,
+        }
+        for s, pool in zip(specs, pools)
+    ]
+    try:
+        grades = gemini.grade_candidates(graded_input)
+    except Exception:
+        logger.exception("Candidate relevance grading failed; falling back to rerank order")
+        return [pool[:MAX_CITATIONS] for pool in pools]
+
+    selected = []
+    for pool, grade_list in zip(pools, grades):
+        verdicts = {str(g.get("pmid")): g for g in grade_list}
+        kept = [
+            c
+            for c in pool
+            if verdicts.get(c["pmid"], {}).get("relevance") == "yes"
+            and verdicts.get(c["pmid"], {}).get("human_subjects") is True
+        ]
+        selected.append(kept[:MAX_CITATIONS])
+    return selected
 
 
 def extract_text(file_field) -> str:
@@ -79,21 +188,48 @@ def _extract_text_from_image(file_field) -> str:
     return vision.extract_text(buffer.getvalue())
 
 
-def build_findings_with_candidates(extracted_text: str) -> list[dict]:
-    """Language-independent pass: identify findings in the report and gather
-    real PubMed candidates for each. The result is cached on
-    Document.findings so switching the annotation language later only needs
-    one more Gemini call, not a full re-run of this (and the PubMed lookups).
+def build_findings_with_candidates(extracted_text: str) -> tuple[list[dict], dict]:
+    """Language-independent pass: identify findings in the report, retrieve
+    PubMed candidates for each, and keep only the ones a relevance grader
+    judges genuinely about the concept. Returns (findings, context) — the
+    findings are cached on Document.findings and the context (scan type /
+    body region, as the document states them) on Document.search_context, so
+    switching the annotation language later needs no re-run of any of this,
+    and the on-demand explain path can search in the same context.
     """
     deidentified = deidentify(extracted_text)
-    findings = gemini.identify_findings(deidentified)
+    identified = gemini.identify_findings(deidentified)
+    context = identified["context"]
 
-    findings_with_candidates = []
-    for finding in findings:
-        term = finding.get("term", "")
-        candidates = pubmed.search(finding.get("pubmed_query", term), max_results=3)
-        findings_with_candidates.append({"term": term, "candidates": candidates})
-    return findings_with_candidates
+    specs, seen = [], set()
+    for finding in identified["findings"]:
+        term = str(finding.get("term") or "").strip()
+        if not term or term.lower() in seen:
+            continue
+        seen.add(term.lower())
+        synonyms = finding.get("synonyms") or []
+        specs.append(
+            {
+                "term": term,
+                "concept": str(finding.get("concept") or "").strip(),
+                "synonyms": [str(s) for s in synonyms if isinstance(s, str)][:3],
+                "needs_context": bool(finding.get("needs_context")),
+                "context": context,
+            }
+        )
+
+    # A term with no searchable concept (a generic adjective like
+    # "physiologic") gets no retrieval at all — searching the raw word would
+    # only find noise — and is simply explained uncited.
+    searchable = [s for s in specs if s["concept"]]
+    selected_by_term = dict(
+        zip([s["term"] for s in searchable], _select_candidates(searchable, pubmed.search_many(searchable)))
+    )
+    findings_with_candidates = [
+        {"term": s["term"], "concept": s["concept"], "candidates": selected_by_term.get(s["term"], [])}
+        for s in specs
+    ]
+    return findings_with_candidates, context
 
 
 def _generate_english_annotations(extracted_text: str, findings_with_candidates: list[dict]) -> dict:
@@ -102,15 +238,14 @@ def _generate_english_annotations(extracted_text: str, findings_with_candidates:
     Every other language's Annotation is *derived* from this one via
     translation (_translate_annotations / get_or_create_annotation below),
     never generated independently — see the note on _translate_annotations
-    for why. Citations are re-validated against the real PubMed candidates
-    after the model responds — it's never trusted on its own to have only
-    cited what it was given.
+    for why. Every citation is verified after the model responds
+    (_verify_citations): a real retrieved paper *and* a quote that really
+    appears in its abstract — it's never trusted on its own.
     """
     if not findings_with_candidates:
         return {"summary": "", "items": []}
 
     deidentified = deidentify(extracted_text)
-    candidates_by_term = {f["term"]: f["candidates"] for f in findings_with_candidates}
     gemini_input = [
         {
             "term": f["term"],
@@ -124,11 +259,12 @@ def _generate_english_annotations(extracted_text: str, findings_with_candidates:
 
     result = gemini.generate_annotations(gemini_input, deidentified, language="en")
 
+    items = result.get("items", [])
     validated_items = []
-    for item in result.get("items", []):
+    for position, item in enumerate(items):
         term = item.get("term", "")
-        candidates = candidates_by_term.get(term, [])
-        citations = _validate_citations(item.get("citations", []), candidates, term)
+        candidates = _candidates_for_item(term, position, len(items), findings_with_candidates)
+        citations = _verify_citations(item.get("citations", []), candidates, term)
         validated_items.append(
             {
                 "term": term,
@@ -290,15 +426,30 @@ def explain_ad_hoc_term(document, term: str, language: str) -> dict:
         raise PersonalInfoSelected(term)
 
     deidentified = deidentify(document.extracted_text)
-    candidates = pubmed.search(term, max_results=3)
+
+    # Same retrieval as the automatic pass — searched in this document's scan
+    # context (saved at upload), reranked, relevance-graded — so an ad-hoc
+    # "SUV" isn't searched as a bare word. A reader's own selection has no
+    # model-refined concept yet, so a small call produces one; if it fails,
+    # the selected text itself is searched, as it always was.
+    context = document.search_context or {}
+    try:
+        described = gemini.describe_term(term, context)
+    except Exception:
+        logger.exception("describe_term failed for a selection; searching the selected text as-is")
+        described = {"concept": term, "synonyms": [], "needs_context": False}
+    spec = {"term": term, **described, "context": context}
+    pool = pubmed.search_many([spec])[0]
+    candidates = _select_candidates([spec], [pool])[0]
 
     # Always generated in English, then translated — same rule as
     # get_or_create_annotation, and for the same reason: one Gemini call
     # total instead of one per language, and every language ends up
     # describing the term identically instead of risking a second,
     # independent generation that phrases it differently.
-    result = gemini.explain_term({"term": term, "candidates": candidates}, deidentified, language="en")
-    citations = _validate_citations(result.get("citations", []), candidates, term)
+    prompt_candidates = [{"pmid": c["pmid"], "title": c["title"], "abstract": c["abstract"]} for c in candidates]
+    result = gemini.explain_term({"term": term, "candidates": prompt_candidates}, deidentified, language="en")
+    citations = _verify_citations(result.get("citations", []), candidates, term)
     english_item = {
         "term": term,
         "explanation": result.get("explanation", ""),
@@ -308,7 +459,9 @@ def explain_ad_hoc_term(document, term: str, language: str) -> dict:
     _append_explanation(document, "en", english_item)
 
     if not any(f.get("term", "").strip().lower() == term.lower() for f in document.findings):
-        document.findings = document.findings + [{"term": term, "candidates": candidates}]
+        document.findings = document.findings + [
+            {"term": term, "concept": spec["concept"], "candidates": candidates}
+        ]
         document.save(update_fields=["findings"])
 
     requested_item = english_item
