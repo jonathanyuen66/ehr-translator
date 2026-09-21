@@ -110,6 +110,22 @@ resource "google_cloud_run_v2_service" "api" {
         container_port = 8080
       }
 
+      # Explicit rather than Cloud Run's 512Mi default: gunicorn runs 2
+      # workers (server/Dockerfile) and each loads the app plus a spaCy model
+      # (~190MB after imports, ~270-300MB after the first upload's redaction),
+      # so two workers land right at 512Mi and an upload got the container
+      # OOM-killed mid-request (503, leaving a document with no annotations).
+      # CPU stays at the 1 vCPU it already had; cpu_idle = true keeps it
+      # request-throttled (stated outright, not left to the default), so the
+      # extra memory is only billed while a request is running.
+      resources {
+        cpu_idle = true
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+
       dynamic "env" {
         for_each = local.app_env
         content {
